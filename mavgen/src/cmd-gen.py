@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 import os
 
-DEFINITION_FILE = os.path.join(os.path.dirname(__file__), 'definitions/purdue.xml')
+DEFINITION_FILE = os.path.join(os.path.dirname(__file__), 'definitions/rf-draw.xml')
 OUTPUT_DIRECTORY = os.path.join(os.path.dirname(__file__),'output/')
 OUTPUT_FILE_PYTHON = "MAVLink.py"
 OUTPUT_FILE_C = "Definitions.c"

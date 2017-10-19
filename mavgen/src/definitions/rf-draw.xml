@@ -1,0 +1,36 @@
+<?xml version='1.0'?>
+<mavlink>
+	<version>1</version>
+	<devices>
+		<device name="input-touchscreen" lang="python">
+			<description>A standard input device with a touchscreen.</description>
+		</device>
+		<device name="display" lang="python">
+			<description>A standard handheld display device.</description>
+		</device>
+		<device name="display-largeformat" lang="c">
+			<description>A large-format display device.</description>
+		</device>
+	</devices>
+	<enums>
+		<enum name="MSG_STATUS">
+			<entry value="0" name="MSG_STATUS_SUCCESS">
+				<description>Message received successfully.</description>
+			</entry>
+			<entry value="1" name="MSG_STATUS_ERR_CRC">
+				<description>Message CRC did not match. Possibly resend message.</description>
+			</entry>
+			<entry value="2" name="MSG_STATUS_ERR_MSG_ID">
+				<description>The remote system did not know how to handle the message ID.</description>
+			</entry>
+			<entry value="3" name="MSG_STATUS_ERR_BUFFER_FULL">
+				<description>The remote system's input buffer was full, and the message could not be accepted.</description>
+			</entry>
+			<entry value="4" name="MSG_STATUS_ERR_INVALID_PARAM">
+				<description>One of the parameters could not be accepted.</description>
+			</entry>
+		</enum>
+	</enums>
+	<messages>
+	</messages>
+</mavlink>
