@@ -5,7 +5,7 @@ class KnownHosts:
   def getHostByID(id):
     try:
       return self.hosts[id]
-    except:
+    except KeyError:
       raise UnknownHostException("No host with ID " + str(id))
   
   def registerHost(host):
