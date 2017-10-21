@@ -5,12 +5,15 @@ MAVLINK_START_BYTE = 0xFE
 MAVLINK_FORMAT_HEADER = '<BBBBBB'
 MAVLINK_FORMAT_CHECKSUM = '<H'
 
+# Retransmission time in seconds.
+MAVLINK_RETRANSMITION_TIME = 5
+
 class MAVLinkPacket:
 	def __init__(self, systemID=MAVLINK_SYSTEM_ID, componentID=MAVLINK_COMPONENT_ID,
-		messageID=0, sequence=0, payload=None):
+		commandID=0, sequence=0, payload=None):
 		self.systemID = systemID
 		self.componentID = componentID
-		self.messageID = messageID
+		self.commandID = commandID
 		self.sequence = sequence
 		self.payload = payload
 
@@ -18,7 +21,7 @@ class MAVLinkPacket:
 		# Construct the header
 		length = len(self.payload)
 		headerPython = (MAVLINK_START_BYTE, length, self.sequence, MAVLINK_SYSTEM_ID,
-			MAVLINK_COMPONENT_ID, self.messageID)
+			MAVLINK_COMPONENT_ID, self.commandID)
 		header = struct.pack(MAVLINK_FORMAT_HEADER, *headerPython)
 		
 		# Concatenate body and header.

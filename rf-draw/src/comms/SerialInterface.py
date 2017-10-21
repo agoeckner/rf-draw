@@ -1,10 +1,10 @@
-# import threading
-# import time
-# import serial
-# import struct
+import threading
+import time
+import serial
+import struct
 
-# # import MAVLink
-# from MAVLink import *
+# import MAVLink
+from MAVLink import *
 
 # class SerialInput(threading.Thread):
 	# def __init__(self, data, serial=None):
@@ -31,7 +31,7 @@
 		# packetSequence = header[2]
 		# systemID = header[3]
 		# componentID = header[4]
-		# messageID = int(header[5])
+		# commandID = int(header[5])
 		
 		# # Unpack the checksum
 		# checksumStr = packetArray[-2:]
@@ -48,7 +48,7 @@
 		# # Pull out the payload
 		# payload = packetArray[6:-2]
 		
-		# return MAVLinkPacket(systemID, componentID, messageID, 0, payload)
+		# return MAVLinkPacket(systemID, componentID, commandID, 0, payload)
 	
 	# def run(self):
 		# if not hasattr(self, 'serial'):
@@ -90,28 +90,38 @@
 					# "Communication is no longer available."))
 				# break
 
-# class SerialOutput(threading.Thread):
-	# def __init__(self, data, serial=None):
-		# threading.Thread.__init__(self)
-		
-		# self.data = data
-		# self.queueIn = data['viQueue']
-		# self.queueOut = data['uiQueue']
-		# self.serial = serial
-		
-		# print("Initializing SerialOutput.")
+class SerialOutput(threading.Thread):
+	def __init__(self, data, serial=None):
+		threading.Thread.__init__(self)
+		print("Initializing SerialOutput.")
+		self.data = data
+		self.queueIn = data['viQueue']
+		self.queueOut = data['uiQueue']
+		self.serial = serial
+		self.transmissionMgr = TransmissionManager()
 	
-	# def run(self):
-		# if not hasattr(self, 'serial'):
-			# print("ERROR! SerialOutput initialization failed.")
-			# return
+	def run(self):
+		if not hasattr(self, 'serial'):
+			raise SerialInterfaceException("SerialOutput initialization failed.")
 		
-		# while True:
-			# if not self.queueIn.empty():
-				# # Serialize the packet.
-				# packet = self.queueIn.get()
-				# packetSer = packet.serialize();
-				# # Send the packet.
-				# self.serial.write(packetSer)
+		while True:
+			while not self.queueIn.empty():
+				# Serialize the packet.
+				packet = self.queueIn.get()
+				packetSer = packet.serialize();
+				self.transmissionMgr.registerPacket(packet.packetID, packetSer)
+				self.serial.write(packetSer)
+			time.sleep(0.1) #wait 0.1 second
 
-                        # time.sleep(0.1) #wait 0.1 second
+class TransmissionManager:
+	def __init__(self):
+		pass
+	
+	def registerPacket(self, id, packetSer):
+		pass #add a packet to the list that need to be acknowledged
+	
+	def ackPacket(self, id)
+		pass #packet acknowledged, remove from retransmission list
+		
+
+class SerialInterfaceException(Exception): pass
