@@ -22,7 +22,10 @@ def sign(packet):
 def verify(packet, sig):
     good_sig = sign(packet)
     return compare_digest(good_sig, sig)
-
+def blake_hmac():
+	m = hmac.new(b'secret key', digestmod=hashlib.blake2s)
+	m.update(b'message')
+	return m.hexdigest()
 
 
 
@@ -38,6 +41,7 @@ def main():
 	sig = sign(packet)
 	print("{0},{1}".format(packet.decode('utf-8'), sig))
 	print('Verified: ' + str (verify(packet, sig)) )
+	print(blake_hmac())
 
 if __name__ == '__main__':
 	main()
