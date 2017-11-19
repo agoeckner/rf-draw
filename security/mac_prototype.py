@@ -15,28 +15,16 @@ def pin_to_key(pin):
 '''
 	SHA256 HMAC
 '''
-def gen(key, packet):	
+def sha256_hmac(key, packet):	
 	hash = hmac.new(key, packet, hashlib.sha256)
 	# to lowercase hexits
 	hash.hexdigest()
 	# to base64
 	return base64.b64encode(hash.digest())
 
-
-'''
-	Basic blake2b sign and verify
-'''
-# SECRET_KEY = b'pseudorandomly generated server secret key'
-# AUTH_SIZE = 16 # in bytes
-
-# def blake2b_hmac(packet):
-# 	h = hmac.blake2b(digest_size=AUTH_SIZE, key=SECRET_KEY)
-# 	h.update(packet)
-# 	return h.digest() #.encode('utf-8')
-
-# def blake2b_verify(packet, sig):
-# 	good_sig = blake2b_hmac(packet)
-# 	return hmac.compare_digest(good_sig, sig)
+def sha256_verify(key, packet, sig):
+	good_sig = sha256_hmac(key, packet)
+	return hmac.compare_digest(good_sig, sig)
 
 
 '''
