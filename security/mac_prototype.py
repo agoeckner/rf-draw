@@ -22,6 +22,9 @@ def sign(packet):
 def verify(packet, sig):
     good_sig = sign(packet)
     return compare_digest(good_sig, sig)
+
+
+
 def blake_hmac():
 	m = hmac.new(b'secret key', digestmod=hashlib.blake2s)
 	m.update(b'message')
