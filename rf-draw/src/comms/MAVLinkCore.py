@@ -33,6 +33,30 @@ class MAVLinkPacket:
 		
 		return message + checksum
 
+key = 'some random string we need to store as global var'
+pin = 'global var set by sha256(pin_from_presenter)'
+mac_key = 'global session persistant key set by setMacKey'
+
+'''
+	Replaces getCRC() to carry out message integrity and
+	message authentication checks.
+'''
+def verifySource(array):
+	res = 'invalid'
+	# mac_key = makeKey(key, pin)
+	# res = getHash(array, mac_key)
+	return res
+
+'''
+	setMacKey is run after the address exchange phase
+	done during init. Returns the maximum 
+'''
+def setMacKey():
+	# addr = getMaxUnicastAddr()
+	mKey = 'key set with max Unicast address in netework'
+	return mKey
+
+
 # This function gets the CRC value of a bytearray
 def getCRC16(array):
 	length = len(array) - 1
