@@ -1,40 +1,75 @@
-MAVLINK_SYSTEM_ID = 2
-MAVLINK_COMPONENT_ID = 0
-MAVLINK_EMPTY_PACKET_SIZE = 8
-MAVLINK_START_BYTE = 0xFE
-MAVLINK_FORMAT_HEADER = '<BBBBBB'
-MAVLINK_FORMAT_CHECKSUM = '<H'
+import Exceptions
 
-# Retransmission time in seconds.
-MAVLINK_RETRANSMITION_TIME = 5
+# Packet configuration.
+PLINK_SIZE_HEADER = 8
+PLINK_SIZE_CHECKSUM = 4
+PLINK_SIZE_EMPTY_PACKET = PLINK_SIZE_HEADER + PLINK_SIZE_CHECKSUM
+PLINK_START_BYTE = 0xEB
+PLINK_FORMAT_HEADER = '!BHBHH'
+PLINK_FORMAT_CHECKSUM = '!I'
 
-class MAVLinkPacket:
-	def __init__(self, systemID=MAVLINK_SYSTEM_ID, componentID=MAVLINK_COMPONENT_ID,
-		commandID=0, sequence=0, payload=None):
-		self.systemID = systemID
-		self.componentID = componentID
-		self.commandID = commandID
+class PLinkPacket:
+	# Create a new packet.
+	def __init__(self,
+			options = 0,
+			sequence = 0,
+			commandID = 0,
+			payload = None):
+		self.options = options
 		self.sequence = sequence
+		self.commandID = commandID
 		self.payload = payload
+	
+	# Create a new packet from a serialized packet.
+	def __init__(self, byteArray):
+		if len(packetArray) < PLINK_SIZE_EMPTY_PACKET:
+			raise InvalidPacket("Packet size less than minimum possible.")
+
+		# Unpack the header
+		header = struct.unpack(PLINK_FORMAT_HEADER,
+			byteArray[0:PLINK_SIZE_HEADER])
+		if header[0] != PLINK_START_BYTE:
+			raise InvalidPacket("Invalid start byte.")
+		if header[1] + PLINK_SIZE_EMPTY_PACKET != len(byteArray):
+			raise InvalidPacket("Packet size does not match stated size.")
+		self.options = header[2]
+		try:
+			self.sequence = int(header[3])
+			self.commandID = int(header[4])
+		except ValueError:
+			raise InvalidPacket("Packet has malformed integer values.")
+
+		# Unpack the checksum
+		checksum = struct.unpack(PLINK_FORMAT_CHECKSUM,
+			byteArray[-PLINK_SIZE_CHECKSUM:])[0]
+
+		# Verify checksum
+		localChecksum = calculateChecksum(
+			bytes(byteArray[0:-PLINK_SIZE_CHECKSUM]))
+		if localChecksum != checksum:
+			raise InvalidPacket("Checksum does not match.")
+
+		# Pull out the payload
+		self.payload = packetArray[PLINK_SIZE_HEADER:-PLINK_SIZE_CHECKSUM]
 
 	def serialize(self):
 		# Construct the header
 		length = len(self.payload)
-		headerPython = (MAVLINK_START_BYTE, length, self.sequence, MAVLINK_SYSTEM_ID,
-			MAVLINK_COMPONENT_ID, self.commandID)
-		header = struct.pack(MAVLINK_FORMAT_HEADER, *headerPython)
+		header = (PLINK_START_BYTE, length, self.options, self.sequence,
+			self.commandID)
+		packedHeader = struct.pack(PLINK_FORMAT_HEADER, *headerPython)
 		
 		# Concatenate body and header.
-		message = header + self.payload
+		message = packedHeader + self.payload
 		
 		# Calculate the checksum.
-		checksumPython = getCRC16(message[1:])
-		checksum = struct.pack(MAVLINK_FORMAT_CHECKSUM, checksumPython)
+		checksum = calculateChecksum(message)
+		packedChecksum = struct.pack(PLINK_FORMAT_CHECKSUM, checksumPython)
 		
-		return message + checksum
+		return message + packedChecksum
 
 # This function gets the CRC value of a bytearray
-def getCRC16(array):
+def calculateChecksum(array):
 	length = len(array) - 1
 	poly = 0x8005
 	crc = 0xFFFF
