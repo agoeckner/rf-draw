@@ -11,10 +11,10 @@ PLINK_FORMAT_CHECKSUM = '!I'
 class PLinkPacket:
 	# Create a new packet.
 	def __init__(self,
-			options = 0,
-			sequence = 0,
-			commandID = 0,
-			payload = None):
+			options = 0, # always 0
+			sequence = 0, # 2 byte uint
+			commandID = 0, # same as above
+			payload = None): # byte arr with val of its length <= 2 byte uint
 		self.options = options
 		self.sequence = sequence
 		self.commandID = commandID

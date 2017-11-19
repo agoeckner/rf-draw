@@ -1,9 +1,20 @@
 import hmac
 import hashlib
 import base64
-from hashlib import blake2b
-from hmac import compare_digest
+# from pyblake2 import blake2b
 
+'''
+Convert arbitrary PIN to a 256-bit key
+'''
+def pin_to_key(pin):
+	h = hashlib.sha256()
+	h.update(pin)
+	h.hexdigest()
+	return h.digest()
+
+'''
+	SHA256 HMAC
+'''
 def gen(key, packet):	
 	hash = hmac.new(key, packet, hashlib.sha256)
 	# to lowercase hexits
@@ -11,40 +22,56 @@ def gen(key, packet):
 	# to base64
 	return base64.b64encode(hash.digest())
 
-SECRET_KEY = b'pseudorandomly generated server secret key'
-AUTH_SIZE = 16
 
-def sign(packet):
-    h = blake2b(digest_size=AUTH_SIZE, key=SECRET_KEY)
-    h.update(packet)
-    return h.hexdigest().encode('utf-8')
+'''
+	Basic blake2b sign and verify
+'''
+# SECRET_KEY = b'pseudorandomly generated server secret key'
+# AUTH_SIZE = 16 # in bytes
 
-def verify(packet, sig):
-    good_sig = sign(packet)
-    return compare_digest(good_sig, sig)
+# def blake2b_hmac(packet):
+# 	h = hmac.blake2b(digest_size=AUTH_SIZE, key=SECRET_KEY)
+# 	h.update(packet)
+# 	return h.digest() #.encode('utf-8')
+
+# def blake2b_verify(packet, sig):
+# 	good_sig = blake2b_hmac(packet)
+# 	return hmac.compare_digest(good_sig, sig)
 
 
+'''
+	blake2s HMAC library example
+'''
+KEY2 = pin_to_key(b"222")
+DIG_SIZE2 = 4 # in bytes
+def blake2s_hmac(packet):
+	# h = hmac.new(KEY2, digestmod=hashlib.blake2s)	
+	h = hashlib.blake2s( digest_size=DIG_SIZE2, key=KEY2 )
+	h.update(packet)
+	print("Digest Size: " + str(h.digest_size) )
+	return h.digest()
 
-def blake_hmac():
-	m = hmac.new(b'secret key', digestmod=hashlib.blake2s)
-	m.update(b'message')
-	return m.hexdigest()
-
+def blake2s_verify(packet, sig):
+	good_sig = blake2s_hmac(packet)
+	return hmac.compare_digest(good_sig, sig)
 
 
 def main():
-	h = hashlib.sha256()
-	h.update(b"111")
-	h.hexdigest()
-	k = h.digest()
-	message = bytes('<our packet as a string>', 'utf-8')
-	print(gen(k, message))
+	packet = b"098928472someinforandsomecommand<<end"
+	invalid_packet = b"098928472someinforandsomecommand<<<end"
+	invalid_sig = b"e3c8102868d28b5ff85fc35dda07329970d1a01e273c37481326fe0c861c8142"
 
-	packet = b'<from-device-a>'
-	sig = sign(packet)
-	print("{0},{1}".format(packet.decode('utf-8'), sig))
-	print('Verified: ' + str (verify(packet, sig)) )
-	print(blake_hmac())
+	# Begin calls
+	sig = blake2s_hmac(packet)
+
+	
+	print( blake2s_verify(packet, sig) )
+	print( blake2s_verify(packet, invalid_sig) )
+	print( blake2s_verify(invalid_packet, sig) )
+	print( blake2s_verify(invalid_packet, invalid_sig) )
+
 
 if __name__ == '__main__':
 	main()
+
+# print( hashlib.algorithms_guaranteed) 
