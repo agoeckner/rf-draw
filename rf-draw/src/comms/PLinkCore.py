@@ -44,8 +44,7 @@ class PLinkPacket:
 			byteArray[-PLINK_SIZE_CHECKSUM:])[0]
 
 		# Verify checksum
-		localChecksum = calculateChecksum(
-			bytes(byteArray[0:-PLINK_SIZE_CHECKSUM]))
+		localChecksum = calculateChecksum(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]))
 		if localChecksum != checksum:
 			raise InvalidPacket("Checksum does not match.")
 
@@ -63,7 +62,7 @@ class PLinkPacket:
 		message = packedHeader + self.payload
 		
 		# Calculate the checksum.
-		checksum = calculateChecksum(message)
+		checksum = calculateChecksum(bytes(message))
 		packedChecksum = struct.pack(PLINK_FORMAT_CHECKSUM, checksumPython)
 		
 		return message + packedChecksum
