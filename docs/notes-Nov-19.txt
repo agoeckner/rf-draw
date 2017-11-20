@@ -1,0 +1,14 @@
+Timers:
+	- Ack timer for each packet to each device
+	- Heartbeat message timer for each device
+	- Self heartbeat message timer
+
+Drawing:
+	- setup a thread that takes incoming packets and
+		executes the on_touch_move() and ont_touch_down() functions.
+
+PLinkCore:
+	- Does packet generation and packet parsing
+
+Authentication:
+	- Using blake2s becaus eit is optimised for 32-bit platforms

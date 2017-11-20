@@ -36,11 +36,12 @@ def blake2s_hmac(packet):
 	# h = hmac.new(KEY2, digestmod=hashlib.blake2s)	
 	h = hashlib.blake2s( digest_size=DIG_SIZE2, key=KEY2 )
 	h.update(packet)
-	print("Digest Size: " + str(h.digest_size) )
+	# print("Digest Size: " + str(h.digest_size) )
 	return h.digest()
 
 def blake2s_verify(packet, sig):
 	good_sig = blake2s_hmac(packet)
+	# use compare_digest() for timing based attacks
 	return hmac.compare_digest(good_sig, sig)
 
 
@@ -51,7 +52,6 @@ def main():
 
 	# Begin calls
 	sig = blake2s_hmac(packet)
-
 	
 	print( blake2s_verify(packet, sig) )
 	print( blake2s_verify(packet, invalid_sig) )
