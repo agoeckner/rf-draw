@@ -91,10 +91,11 @@ from MAVLink import *
 				# break
 
 class SerialOutput(threading.Thread):
-	def __init__(self, data, serial=None):
+	def __init__(self,
+			serial = None,
+			queueIn, queueOut):
 		threading.Thread.__init__(self)
 		print("Initializing SerialOutput.")
-		self.data = data
 		self.queueIn = data['viQueue']
 		self.queueOut = data['uiQueue']
 		self.serial = serial
@@ -112,16 +113,5 @@ class SerialOutput(threading.Thread):
 				self.transmissionMgr.registerPacket(packet.packetID, packetSer)
 				self.serial.write(packetSer)
 			time.sleep(0.1) #wait 0.1 second
-
-class TransmissionManager:
-	def __init__(self):
-		pass
-	
-	def registerPacket(self, id, packetSer):
-		pass #add a packet to the list that need to be acknowledged
-	
-	def ackPacket(self, id)
-		pass #packet acknowledged, remove from retransmission list
-		
 
 class SerialInterfaceException(Exception): pass
