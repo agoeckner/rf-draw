@@ -12,8 +12,19 @@
 			<description>A large-format display device.</description>
 		</device>
 	</devices>
+	<messages>
+		<message name="NET_REQUEST">
+			<description>Requests a response from every device in the network to indicate presence.</description>
+		</message>
+		<message name="NET_REPLY">
+			<description>Response sent after reception of a NET_REQUEST to indicate presence.</description>
+		</message>
+		<message name="NET_HEARTBEAT">
+			<description>Sent by each device every 5 seconds.</description>
+		</message>
+	</messages>
 	<enums>
-		<enum name="MSG_STATUS">
+		<!--<enum name="MSG_STATUS">
 			<entry value="0" name="MSG_STATUS_SUCCESS">
 				<description>Message received successfully.</description>
 			</entry>
@@ -29,8 +40,6 @@
 			<entry value="4" name="MSG_STATUS_ERR_INVALID_PARAM">
 				<description>One of the parameters could not be accepted.</description>
 			</entry>
-		</enum>
+		</enum>-->
 	</enums>
-	<messages>
-	</messages>
 </mavlink>
