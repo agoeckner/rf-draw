@@ -1,13 +1,14 @@
-import xml.etree.ElementTree as ET
+import argparse
 import os
+import xml.etree.ElementTree as ET
 
 DEFINITION_FILE = os.path.join(os.path.dirname(__file__), 'definitions/rf-draw.xml')
 OUTPUT_DIRECTORY = os.path.join(os.path.dirname(__file__),'output/')
-OUTPUT_FILE_PYTHON = "MAVLink.py"
+OUTPUT_FILE_PYTHON = "PLinkCmdInterface.py"
 OUTPUT_FILE_C = "Definitions.c"
 OUTPUT_FILE_CH = "Definitions.h"
 
-MAVLINK_MAX_COMMANDS = 256
+PLINK_MAX_COMMANDS = 256
 
 pythonTypeMappings = {
 	'int8_t': 'b',
@@ -18,6 +19,7 @@ pythonTypeMappings = {
 	'uint32_t': 'I',
 	'float': 'f',
 	'double': 'd',
+	'char': 'c'
 }
 
 def exportCommandsPython(deviceList, deviceLang, enumList, messages):
@@ -34,17 +36,21 @@ def exportCommandsPython(deviceList, deviceLang, enumList, messages):
 					raise
 		print("OUTPUT FILE " + fileName)
 		file = open(fileName, 'w');
-	
+		
 		#IMPORTS
 		file.write("import struct\n")
-    file.write("import MAVLinkCore\n")
-		file.write("import MAVMessageHandlers\n")
-    
+		
+		# Transmit and receive handlers.
+		file.write("RECEIVER = None\n")
+		file.write("def setRecieveHandler(obj): RECEIVER = obj\n")
+		file.write("TRANSMITTER = None\n")
+		file.write("def setTransmitHandler(obj): TRANSMITTER = obj\n")
+		
 		#ENUMS
 		for enum in enumList:
 			name = enum[0]
 			entries = enum[1]
-			file.write("MAVENUM_" + name + "={\n")
+			file.write("PLENUM_" + name + "={\n")
 			entStr = ""
 			for entry in entries:
 				file.write("\t\'" + str(entry[0]) + "\':" + str(entry[1]) + ",\n")
@@ -53,7 +59,7 @@ def exportCommandsPython(deviceList, deviceLang, enumList, messages):
 		for enum in enumList:
 			name = enum[0]
 			entries = enum[1]
-			file.write("MAVENUM_NAME_" + name + "={\n")
+			file.write("PLENUM_INV_" + name + "={\n")
 			entStr = ""
 			for entry in entries:
 				file.write("\t" + str(entry[1]) + ":\'" + str(entry[0]) + "\',\n")
@@ -61,7 +67,7 @@ def exportCommandsPython(deviceList, deviceLang, enumList, messages):
 			file.write("};\n")
 
 		#IDs
-		file.write("MAVCMD_ID={\n")
+		file.write("PLCMD_ID={\n")
 		for message in messages:
 			id = str(message[0])
 			name = str(message[1])
@@ -69,40 +75,46 @@ def exportCommandsPython(deviceList, deviceLang, enumList, messages):
 		file.write("}\n")
 		
 		#FORMATS
-		file.write("MAVCMD_FORMAT={\n")
+		file.write("PLCMD_FORMAT={\n")
 		for message in messages:
 			id = str(message[0])
 			name = str(message[1])
 			fields = message[2]
-			format = '<'
+			format = '!'
 			for field in fields:
 				type = field[1]
 				try:
 					format += pythonTypeMappings[type]
 				except KeyError:
-					print("ERROR: INVALID TYPE: " + str(type))
-
+					print("ERROR: unknown variable type: " + str(type))
 			file.write("\t\'" + name + "\':\'" + format + "\',\n")
 		file.write("}\n")
 		
 		#SEND COMMANDS
-		for message in messages:
-			if device not in message[3]:
-				continue
-			id = str(message[0])
-			name = str(message[1])
-			fields = message[2]
-			func = "MAVSEND_" + name
-			file.write("def " + func + "(commandQueue,")
-			for field in fields:
-				file.write(str(field[0]) + ",")
-			file.write("):\n")
-			file.write("\tdata=struct.pack(MAVCMD_FORMAT[\'" + name + "\'],")
-			for field in fields:
-				file.write(str(field[0]) + ",")
-			file.write(")\n")
-			file.write("\tpacket=MAVLinkPacket(messageID=MAVCMD_ID[\'" + name + "\'],payload=data)\n")
-			file.write("\tcommandQueue.put(packet)\n")
+		# for message in messages:
+			# if device not in message[3]:
+				# continue
+			# id = str(message[0])
+			# name = str(message[1])
+			# fields = message[2]
+			# func = "PLSEND_" + name
+			# file.write("def " + func + "(destination,")
+			# for field in fields:
+				# file.write(str(field[0]) + ",")
+			# file.write("options=0):\n")
+			# file.write("\tdata=struct.pack(PLCMD_FORMAT[\'" + name + "\'],")
+			# for field in fields:
+				# file.write(str(field[0]) + ",")
+			# file.write(")\n")
+			# file.write("\tpacket=PLinkPacket(commandID=PLCMD_ID[\'" + name +
+				# "\'],payload=data,options=options)\n")
+			# file.write("\tTRANSMITTER.transmit(destination,packet)\n")
+
+		file.write("def PLSEND(destination, cmdName, fields=(), options=0):\n")
+		file.write("\tdata=struct.pack(PLCMD_FORMAT[cmdName], *fields)\n")
+		file.write("\tpacket=PLinkPacket(commandID=PLCMD_ID[cmdName],"
+			"payload=data,options=options)\n")
+		file.write("\tTRANSMITTER.transmit(destination,packet)\n")
 
 		#PARSE COMMANDS
 		for message in messages:
@@ -111,19 +123,19 @@ def exportCommandsPython(deviceList, deviceLang, enumList, messages):
 			id = str(message[0])
 			name = str(message[1])
 			fields = message[2]
-			func = "MAVPARSE_" + name
-			file.write("def " + func + "(programData, packet):\n")
-			file.write("\tdata = struct.unpack(MAVCMD_FORMAT[\'" + name + "\'], packet.payload)\n")
-			file.write("\tMAVMessageHandlers.MAVRCV_" + name + "(programData, *data)\n")
+			func = "PLPARSE_" + name
+			file.write("def " + func + "(packet):\n")
+			file.write("\tdata = struct.unpack(PLCMD_FORMAT[\'" + name + "\'], packet.payload)\n")
+			file.write("\tRECEIVER." + name + "(*data)\n")
 
 		#PARSE COMMAND DICTIONARY
-		file.write("MAVCMD_PARSER={\n")
+		file.write("PLCMD_PARSER={\n")
 		for message in messages:
 			if device not in message[4]:
 				continue
 			id = str(message[0])
 			name = str(message[1])
-			func = "MAVPARSE_" + name
+			func = "PLPARSE_" + name
 			file.write("\t" + id + ":" + func + ",\n")
 		file.write("}\n")
 		
@@ -156,14 +168,14 @@ def exportCommandsC(deviceList, deviceLang, enumList, messages):
 			if device not in message[4]:
 				continue
 			messageIdDict[message[0]] = message
-		file.write("void (*MAVPARSER_FUNCTION[])(COMM_MAVLINK_PACKET packet) = \n{\n")
-		for id in range(0, MAVLINK_MAX_COMMANDS):
+		file.write("void (*PLPARSER_FUNCTION[])(COMM_PLINK_PACKET packet) = \n{\n")
+		for id in range(0, PLINK_MAX_COMMANDS):
 			try:
 				message = messageIdDict[id]
-				file.write("\tMAVPARSE_" + str(message[1]))
+				file.write("\tPLPARSE_" + str(message[1]))
 			except KeyError:
 				file.write("\tNULL");
-			if id == MAVLINK_MAX_COMMANDS - 1:
+			if id == PLINK_MAX_COMMANDS - 1:
 				file.write("\n")
 			else:
 				file.write(",\n")
@@ -177,8 +189,8 @@ def exportCommandsC(deviceList, deviceLang, enumList, messages):
 			id = str(message[0])
 			name = str(message[1])
 			fields = message[2]
-			func = "MAVPARSE_" + name
-			file.write("void " + func + "(COMM_MAVLINK_PACKET packet)\n{\n")
+			func = "PLPARSE_" + name
+			file.write("void " + func + "(COMM_PLINK_PACKET packet)\n{\n")
 			if len(fields) > 0:
 				file.write("\tstruct __attribute__((__packed__)) values\n\t{\n")
 				for field in fields:
@@ -211,7 +223,7 @@ def exportCommandsC(deviceList, deviceLang, enumList, messages):
 			id = str(message[0])
 			name = str(message[1])
 			fields = message[2]
-			func = "MAVSEND_" + name
+			func = "PLSEND_" + name
 			file.write("void " + func + "(CIRCULAR_BUFFER* transmitBuffer")
 			for field in fields:
 				file.write("," + str(field[1]) + " " + str(field[0]))
@@ -229,7 +241,7 @@ def exportCommandsC(deviceList, deviceLang, enumList, messages):
 			file.write(args + "\n\t};\n")
 			file.write("\tuint8_t payloadSize = sizeof(struct values);\n")
 			file.write("\tuint8_t messageID = " + id + ";\n")
-			file.write("\tCOMM_MAVLINK_PACKET packet = commGeneratePacket((void*)(&data), payloadSize, messageID);\n")
+			file.write("\tCOMM_PLINK_PACKET packet = commGeneratePacket((void*)(&data), payloadSize, messageID);\n")
 			file.write("\tcommSendPacket(transmitBuffer, packet);\n")
 			file.write("}\n")
 			
@@ -269,7 +281,7 @@ def exportCommandsCH(deviceList, deviceLang, enumList, messages):
 			file.write("\n};\n")
 		
 		#PARSER POINTERS
-		file.write("extern void (*MAVPARSER_FUNCTION[])(COMM_MAVLINK_PACKET packet);\n")
+		file.write("extern void (*PLPARSER_FUNCTION[])(COMM_PLINK_PACKET packet);\n")
 		
 		#SEND COMMANDS
 		for message in messages:
@@ -279,7 +291,7 @@ def exportCommandsCH(deviceList, deviceLang, enumList, messages):
 			id = str(message[0])
 			name = str(message[1])
 			fields = message[2]
-			func = "MAVSEND_" + name
+			func = "PLSEND_" + name
 			file.write("void " + func + "(CIRCULAR_BUFFER* transmitBuffer")
 			for field in fields:
 				file.write("," + str(field[1]) + " " + str(field[0]))
@@ -313,13 +325,20 @@ def exportCommandsCH(deviceList, deviceLang, enumList, messages):
 			id = str(message[0])
 			name = str(message[1])
 			fields = message[2]
-			func = "MAVPARSE_" + name
-			file.write("void " + func + "(COMM_MAVLINK_PACKET packet);\n")
+			func = "PLPARSE_" + name
+			file.write("void " + func + "(COMM_PLINK_PACKET packet);\n")
 		
 		file.write("#endif")
 		file.close()
 
 def main():
+	# Parse args
+	# parser = argparse.ArgumentParser(description='Generate PLink command code.')
+	# parser.add_argument('--definition', help='A definition file to include.')
+	# parser.add_argument('--outputdir', help='Output directory.')
+	# args = parser.parse_args()
+	# return
+	
 	deviceList = []
 	deviceLang = {}
 	enumList = []
@@ -363,8 +382,10 @@ def main():
 	
 	#messages contains all commands/messages
 	messages = tree.find('messages')
+	commandID = 0
 	for message in messages.iter('message'):
-		id = int(message.get('id'))
+		id = commandID #int(message.get('id'))
+		commandID += 1
 		name = message.get('name')
 		args = []
 		
