@@ -1,12 +1,8 @@
 import threading
 import time
-import serial
 import struct
 
-# import MAVLink
-from MAVLink import *
-
-# class SerialInput(threading.Thread):
+# class SerialReader(threading.Thread):
 	# def __init__(self, data, serial=None):
 		# threading.Thread.__init__(self)
 		
@@ -90,28 +86,20 @@ from MAVLink import *
 					# "Communication is no longer available."))
 				# break
 
-class SerialOutput(threading.Thread):
-	def __init__(self,
-			serial = None,
-			queueIn, queueOut):
+class SerialWriter(threading.Thread):
+	def __init__(self, serial, queue):
 		threading.Thread.__init__(self)
-		print("Initializing SerialOutput.")
-		self.queueIn = data['viQueue']
-		self.queueOut = data['uiQueue']
+		print("Initializing SerialWriter.")
+		self.queueIn = queue['in']
+		self.queueOut = queue['out']
 		self.serial = serial
-		self.transmissionMgr = TransmissionManager()
 	
 	def run(self):
 		if not hasattr(self, 'serial'):
-			raise SerialInterfaceException("SerialOutput initialization failed.")
+			raise SerialInterfaceException("SerialWriter initialization failed.")
 		
 		while True:
-			while not self.queueIn.empty():
-				# Serialize the packet.
-				packet = self.queueIn.get()
-				packetSer = packet.serialize();
-				self.transmissionMgr.registerPacket(packet.packetID, packetSer)
-				self.serial.write(packetSer)
-			time.sleep(0.1) #wait 0.1 second
+			frame = self.queueOut.get(block=True)
+			self.serial.write(frame)
 
 class SerialInterfaceException(Exception): pass

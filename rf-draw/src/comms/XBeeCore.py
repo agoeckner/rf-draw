@@ -1,4 +1,4 @@
-import Exceptions
+from . import Exceptions
 
 # Frame configuration.
 XBEE_START_BYTE = 0x7E

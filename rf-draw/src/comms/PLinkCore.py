@@ -1,4 +1,4 @@
-import Exceptions
+from . import Exceptions
 
 # Packet configuration.
 PLINK_SIZE_HEADER = 8

@@ -1,42 +1,43 @@
-import kivy
-kivy.require('1.0.6') # replace with your current kivy version !
+import app
+from comms import *
+import os
+import queue
 
-from random import random
-from kivy.app import App
-from kivy.uix.widget import Widget
-from kivy.uix.button import Button
-from kivy.graphics import Color, Ellipse, Line
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), '/config.ini')
 
+class RFDraw:
+	def __init__(self):
+		# Import settings
+		# config = ConfigParser.SafeConfigParser()
+		# config.read(CONFIG_FILE)
+		comms_baud_rate = 115200 #config.get("comms", "baud_rate")
+		comms_port = "/dev/null" #config.get("comms", "port")
 
-class MyPaintWidget(Widget):
-
-    def on_touch_down(self, touch):
-        color = (random(), 1, 1)
-        with self.canvas:
-            Color(*color, mode='hsv')
-            d = 30.
-            Ellipse(pos=(touch.x - d / 2, touch.y - d / 2), size=(d, d))
-            touch.ud['line'] = Line(points=(touch.x, touch.y))
-
-    def on_touch_move(self, touch):
-        print(touch.x, touch.y)
-        touch.ud['line'].points += [touch.x, touch.y]
-
-
-class MyPaintApp(App):
-
-    def build(self):
-        parent = Widget()
-        self.painter = MyPaintWidget()
-        clearbtn = Button(text='Clear')
-        clearbtn.bind(on_release=self.clear_canvas)
-        parent.add_widget(self.painter)
-        parent.add_widget(clearbtn)
-        return parent
-
-    def clear_canvas(self, obj):
-        self.painter.canvas.clear()
-
+		# Set up inter-thread communication queues.
+		self.queue = {
+			'out': queue.Queue(),
+			'in': queue.Queue(),
+			'error': queue.Queue()}
+		
+		# Open serial connection.
+		try:
+			self.serial = serial.Serial(comms_port, comms_baud_rate)
+		except serial.SerialException as e:
+			print("ERROR: Could not connect to radio!")
+			raise e
+		self.serialIn = SerialInterface.SerialReader(self.serial, self.queue)
+		self.serialOut = SerialInterface.SerialWriter(self.serial, self.queue)
+		
+		# Set up network.
+		self.netHosts = Network.KnownHosts()
+		self.netTransmissionMgr = Network.TransmissionManager(self.netHosts,
+			self.queue)
+		
+		# Set up the UI.
+		self.app = app.MyPaintApp(self.netTransmissionMgr)
+	
+	def run(self):
+		self.app.run()
 
 if __name__ == '__main__':
-    MyPaintApp().run()
+	RFDraw().run()

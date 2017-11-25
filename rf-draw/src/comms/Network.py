@@ -1,14 +1,15 @@
-import PLinkCore
-import XBeeCore
-import SerialInterface
+from . import PLinkCore
+from . import XBeeCore
+from . import SerialInterface
 
 ADDR_BROADCAST = 0xFFFF
 ADDR_UNICAST_MAX = 0xFFFD
 ADDR_UNICAST_MIN = 0x0000
 
 class TransmissionManager:
-	def __init__(self, hosts):
+	def __init__(self, hosts, queue):
 		self.hosts = hosts
+		self.queueOut = queue['out']
 
 	def transmit(destination, packet, options = 0):
 		host = self.hosts.getHostByAddress(destination)
@@ -19,7 +20,10 @@ class TransmissionManager:
 		else:
 			host.packetCounter += 1
 		packet.sequence = host.packetCounter
+		
+		# Add packet to retransmission list.
 		data = packet.serialize()
+		self.registerPacket(packet.sequence, data)
 		
 		# Split data into multiple frames.
 		length = len(data)
@@ -33,21 +37,29 @@ class TransmissionManager:
 			else:
 				host.frameCounter += 1
 			
+			# Construct frame.
 			frame = XBeeCore.XBeeFrame(
 				host.frameCounter,
-				)
+				destination,
+				options,
+				payload)
+			
+			# Transmit frame
+			serializedFrame = frame.serialize()
+			self.queueOut.put(serializedFrame)
 	
 	def _registerPacket(self, id, packetSer):
 		pass #add a packet to the list that need to be acknowledged
 	
-	def _ackPacket(self, id)
+	def _ackPacket(self, id):
 		pass #packet acknowledged, remove from retransmission list
 		
 
 class KnownHosts:
 	def __init__(self):
 		self.hosts = {}
-		self.hosts[0xFFFF] = Host(0xFFFF) #broadcast
+		self.hosts[ADDR_BROADCAST] = Host(ADDR_BROADCAST) #broadcast
+		self.broadcast = self.hosts[ADDR_BROADCAST]
 	
 	def getHostByAddress(self, address):
 		try:
