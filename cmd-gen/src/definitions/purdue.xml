@@ -1,0 +1,228 @@
+<?xml version='1.0'?>
+<mavlink>
+	<version>1</version>
+	<devices>
+		<device name="ground" lang="python">
+			<description>Ground control system (GCS).</description>
+		</device>
+		<device name="vehicle-primary" lang="c">
+			<description>Vehicle primary processor.</description>
+		</device>
+		<device name="vehicle-secondary" lang="c">
+			<description>Vehicle secondary processor.</description>
+		</device>
+	</devices>
+	<enums>
+		<enum name="MAV_STATE">
+			<entry value="0" name="MAV_STATE_UNINIT">
+				<description>Uninitialized system, state is unknown.</description>
+			</entry>
+			<entry name="MAV_STATE_BOOT">
+				<description>System is booting up.</description>
+			</entry>
+			<entry name="MAV_STATE_CALIBRATING">
+				<description>System is calibrating and not flight-ready.</description>
+			</entry>
+			<entry name="MAV_STATE_STANDBY">
+				<description>System is grounded and on standby. It can be launched any time.</description>
+			</entry>
+			<entry name="MAV_STATE_ACTIVE">
+				<description>System is active and might be already airborne. Motors are engaged.</description>
+			</entry>
+			<entry name="MAV_STATE_CRITICAL">
+				<description>System is in a non-normal flight mode. It can however still navigate.</description>
+			</entry>
+			<entry name="MAV_STATE_EMERGENCY">
+				<description>System is in a non-normal flight mode. It lost control over parts or over the whole airframe. It is in mayday and going down.</description>
+			</entry>
+			<entry name="MAV_STATE_POWEROFF">
+				<description>System just initialized its power-down sequence, will shut down now.</description>
+			</entry>
+		</enum>
+		<enum name="MSG_STATUS">
+			<entry value="0" name="MSG_STATUS_SUCCESS">
+				<description>Message received successfully.</description>
+			</entry>
+			<entry value="1" name="MSG_STATUS_ERR_CRC">
+				<description>Message CRC did not match. Possibly resend message.</description>
+			</entry>
+			<entry value="2" name="MSG_STATUS_ERR_MSG_ID">
+				<description>The remote system did not know how to handle the message ID.</description>
+			</entry>
+			<entry value="3" name="MSG_STATUS_ERR_BUFFER_FULL">
+				<description>The remote system's input buffer was full, and the message could not be accepted.</description>
+			</entry>
+			<entry value="4" name="MSG_STATUS_ERR_INVALID_PARAM">
+				<description>One of the parameters could not be accepted.</description>
+			</entry>
+		</enum>
+		<enum name="NAV_MODE">
+			<entry value="0" name="NAV_MODE_MANUAL">
+				<description>System is under manual human control.</description>
+			</entry>
+			<entry value="1" name="NAV_MODE_AUTO">
+				<description>System is under autopilot control, with no autoguidance. The vehicle will basically fly a straight line to a designated point.</description>
+			</entry>
+			<entry value="2" name="NAV_MODE_AUTO_WAYPOINTS">
+				<description>System is under autopilot control, with autoguidance. The vehicle will fly a series of waypoints.</description>
+			</entry>
+		</enum>
+		<enum name="NAV_STATUS">
+			<entry value="0" name="NAV_STATUS_NORMAL">
+				<description>Navigation system working normally.</description>
+			</entry>
+			<entry value="1" name="NAV_STATUS_ERR_WAYPOINTS_FULL">
+				<description>The previous waypoint could not be added because the waypoint buffer is full.</description>
+			</entry>
+			<entry value="2" name="NAV_STATUS_ERR_WAYPOINTS_EMPTY">
+				<description>The navigation system cannot function because it has no waypoints.</description>
+			</entry>
+		</enum>
+	</enums>
+	<messages>
+		<message id="0" name="HEARTBEAT">
+			<rxdevice>ground</rxdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<rxdevice>vehicle-primary</rxdevice>
+			<txdevice>vehicle-secondary</txdevice>
+			<description>The heartbeat message shows that a system is present and responding.</description>
+			<field type="uint8_t" name="system_status">System status flag, see MAV_STATE ENUM</field>
+			<field type="uint8_t" name="nav_mode">System status flag, see NAV_MODE ENUM</field>
+		</message>
+		<message id="1" name="INVALID_MSG">
+			<description>The message was received, but could not be accepted.</description>
+			<field type="uint8_t" name="error">The error that occured. See MSG_STATUS enum.</field>
+		</message>
+		<message id="20" name="SET_PID_CONSTANTS">
+			<rxdevice>vehicle-primary</rxdevice>
+			<txdevice>ground</txdevice>
+			<description>Sets PID tuning constants.</description>
+			<field type="float" name="rollP"></field>
+			<field type="float" name="pitchP"></field>
+			<field type="float" name="headP"></field>
+		</message>
+		<message id="50" name="NAV_STATUS">
+			<rxdevice>ground</rxdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<description>A status message from the onboard navigation system.</description>
+			<field type="uint8_t" name="status">The status message. See NAV_STATUS enum.</field>
+		</message>
+		<message id="51" name="NAV_SET_MODE">
+			<rxdevice>vehicle-primary</rxdevice>
+			<txdevice>ground</txdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<rxdevice>ground</rxdevice>
+			<description>Sets the vehicle navigation mode.</description>
+			<field type="uint8_t" name="mode">The navigation mode. See NAV_MODE enum.</field>
+		</message>
+		<message id="52" name="NAV_SET_DESTINATION">
+			<rxdevice>vehicle-primary</rxdevice>
+			<txdevice>ground</txdevice>
+			<description>Commands the vehicle to fly to a specific destination immediately.</description>
+			<field type="double" name="latitude"></field>
+			<field type="double" name="longitude"></field>
+			<field type="double" name="altitude"></field>
+			<field type="double" name="airspeed"></field>
+		</message>
+		<message id="60" name="NAV_WAYPOINTS_PUSH">
+			<rxdevice>vehicle-primary</rxdevice>
+			<txdevice>ground</txdevice>
+			<description>Pushes a new waypoint to the end of the vehicle's queue.</description>
+			<field type="double" name="latitude"></field>
+			<field type="double" name="longitude"></field>
+			<field type="double" name="altitude"></field>
+			<field type="double" name="airspeed"></field>
+			<field type="double" name="outerRadius"></field>
+		</message>
+		<message id="61" name="NAV_WAYPOINTS_POP">
+			<rxdevice>vehicle-primary</rxdevice>
+			<txdevice>ground</txdevice>
+			<description>Removes the first (current) waypoint in the queue. Vehicle will proceed to next waypoint.</description>
+		</message>
+		<message id="62" name="NAV_WAYPOINTS_CLEAR">
+			<rxdevice>vehicle-primary</rxdevice>
+			<txdevice>ground</txdevice>
+			<description>Clears all waypoints from the vehicle.</description>
+		</message>
+		<message id="63" name="NAV_WAYPOINTS_REQUEST">
+			<rxdevice>ground</rxdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<description>Requests waypoints from the ground.</description>
+			<field type="uint8_t" name="waypointCount"></field>
+		</message>
+		<message id="100" name="TELEMETRY_ALL">
+			<rxdevice>ground</rxdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<description>Receives all telemetry data from sensor board</description>
+			<field type="double" name="altitude"></field>
+			<field type="double" name="latitude"></field>
+			<field type="double" name="longitude"></field>
+			<field type="double" name="eu_x"></field>
+			<field type="double" name="eu_y"></field>
+			<field type="double" name="eu_z"></field>
+			<field type="double" name="airspeed"></field>
+			<field type="double" name="groundspeed"></field>
+		</message>
+		<message id="101" name="TELEMETRY_DEBUG">
+			<rxdevice>ground</rxdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<description>Contains debug data from many sensors as well as system statuses</description>
+			<field type="double" name="rangeLidar"></field>
+			<field type="double" name="pressureBaro"></field>
+			<field type="double" name="tempBaro"></field>
+			<field type="double" name="altitudeGPS"></field>
+			<field type="double" name="altitude"></field>
+			<field type="double" name="latitude"></field>
+			<field type="double" name="longitude"></field>
+			<field type="double" name="eu_x"></field>
+			<field type="double" name="eu_y"></field>
+			<field type="double" name="eu_z"></field>
+			<field type="double" name="airspeed"></field>
+			<field type="double" name="groundspeed"></field>
+			<field type="uint8_t" name="systemStatus"></field>
+			<field type="uint8_t" name="navMode"></field>
+			<field type="uint8_t" name="coprocStatus"></field>
+			<field type="uint8_t" name="coprocNavMode"></field>
+			<field type="uint8_t" name="IMUSysCal"></field>
+			<field type="uint8_t" name="IMUAccelCal"></field>
+			<field type="uint8_t" name="IMUGyroCal"></field>
+			<field type="uint8_t" name="IMUMagCal"></field>
+		</message>
+		<message id="128" name="COPROC_UPDATE">
+			<rxdevice>vehicle-secondary</rxdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<description>Updates servo values on CoProc</description>
+			<field type="uint8_t" name="status"></field>
+			<field type="uint16_t" name="servo1"></field>
+			<field type="uint16_t" name="servo2"></field>
+			<field type="uint16_t" name="servo3"></field>
+			<field type="uint16_t" name="servo4"></field>
+			<field type="uint16_t" name="servo5"></field>
+			<field type="uint16_t" name="servo6"></field>
+			<field type="uint16_t" name="servo7"></field>
+			<field type="uint16_t" name="servo8"></field>
+			<field type="uint16_t" name="servo9"></field>
+			<field type="uint16_t" name="servo10"></field>
+			<field type="uint16_t" name="servo11"></field>
+			<field type="uint16_t" name="servo12"></field>
+		</message>
+		<message id="253" name="DEBUG_UINT8">
+			<rxdevice>ground</rxdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<description>Receive a uint8_t from the plane.</description>
+			<field type="uint8_t" name="val"></field>
+		</message>
+		<message id="254" name="DEBUG_UINT16">
+			<rxdevice>ground</rxdevice>
+			<txdevice>vehicle-primary</txdevice>
+			<description>Receive a uint16_t from the plane.</description>
+			<field type="uint16_t" name="val"></field>
+		</message>
+		<message id="255" name="TEST_LED">
+			<rxdevice>vehicle-primary</rxdevice>
+			<txdevice>ground</txdevice>
+			<description>Turns an LED on or off.</description>
+			<field type="uint8_t" name="flag">LED status flag, on/off.</field>
+		</message>
+	</messages>
+</mavlink>
