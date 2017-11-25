@@ -29,9 +29,7 @@ class RFDraw:
 		self.serialOut = SerialInterface.SerialWriter(self.serial, self.queue)
 		
 		# Set up network.
-		self.netHosts = Network.KnownHosts()
-		self.netTransmissionMgr = Network.TransmissionManager(self.netHosts,
-			self.queue)
+		self.network = Network.Network()
 		
 		# Set up the UI.
 		self.app = app.MyPaintApp(self.netTransmissionMgr)

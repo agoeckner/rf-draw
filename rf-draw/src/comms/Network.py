@@ -6,6 +6,21 @@ ADDR_BROADCAST = 0xFFFF
 ADDR_UNICAST_MAX = 0xFFFD
 ADDR_UNICAST_MIN = 0x0000
 
+class Network:
+	def __init__(self):
+		# Set up network.
+		self.hosts = Network.KnownHosts(self)
+		self.transmissionMgr = Network.TransmissionManager(self.hosts, self.queue)
+		self.commandMgr = PLinkCommandManager.PLinkCommandManager(self.transmissionMgr)
+		
+		# Register network commands.
+		self.commandMgr.registerCommand("NET_REQUEST",
+			callback = self.hosts.onNetRequest)
+		self.commandMgr.registerCommand("NET_REPLY",
+			callback = self.hosts.onNetReply)
+		self.commandMgr.registerCommand("NET_BROADCAST",
+			callback = self.hosts.onNetBroadcast)
+
 class TransmissionManager:
 	def __init__(self, hosts, queue):
 		self.hosts = hosts
@@ -56,7 +71,9 @@ class TransmissionManager:
 		
 
 class KnownHosts:
-	def __init__(self):
+	def __init__(self, network):
+		self.network = network
+		self.netRequestSequence = 0
 		self.hosts = {}
 		self.hosts[ADDR_BROADCAST] = Host(ADDR_BROADCAST) #broadcast
 		self.broadcast = self.hosts[ADDR_BROADCAST]
@@ -72,6 +89,19 @@ class KnownHosts:
 	
 	def unregisterHost(self, host):
 		self.hosts.pop(host.id, None)
+	
+	def onNetRequest(self, source):
+		if source not in self.hosts:
+			self.registerHost(Host(source))
+		self.network.transmissionMgr.sendCommand(source, "NET_REPLY")
+	
+	def onNetReply(self, source):
+		if source not in self.hosts:
+			self.registerHost(Host(source))
+	
+	def onNetBroadcast(self, source):
+		#TODO
+		pass
 
 class Host:
 	def __init__(self, address):

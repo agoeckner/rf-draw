@@ -3,3 +3,6 @@ class InvalidPacket(Exception):
 
 class InvalidFrame(Exception):
 	pass
+
+class PLInvalidCommand(Exception):
+	pass
