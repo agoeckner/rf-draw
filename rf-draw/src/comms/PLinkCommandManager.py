@@ -1,5 +1,6 @@
 from . import Exceptions
 from . import PLinkCore
+import struct
 
 class PLinkCommandManager:
 	def __init__(self, transmissionMgr):
@@ -32,17 +33,22 @@ class PLinkCommandManager:
 			cmd = self.commandByName[cmdName]
 		except KeyError:
 			raise PLInvalidCommand(cmdName)
-		data = struct.pack(cmd.format, *paramaters)
+		data = struct.pack(cmd.format, *parameters)
 		packet = PLinkCore.PLinkPacket(
 			commandID = cmd.id,
 			payload = data,
 			options = options)
 		self.transmissionMgr.transmit(destination, packet)
 
-	class PLCommand:
-		def __init__(self, id, name, parameters, callback):
-			self.id = id
-			self.name = name
-			self.parameters = parameters
-			self.format = "!" + str(map(lambda x: x[1], paramaters))
-			self.callback = callback
+class PLCommand:
+	def __init__(self, id, name, parameters, callback):
+		self.id = id
+		self.name = name
+		self.parameters = parameters
+		self.format = "!"
+		for param in parameters:
+			self.format += param[1]
+		self.callback = callback
+		print("NEW COMMAND: " + name)
+		print(parameters)
+		print(self.format)

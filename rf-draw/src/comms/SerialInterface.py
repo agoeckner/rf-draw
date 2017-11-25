@@ -93,6 +93,8 @@ class SerialWriter(threading.Thread):
 		self.queueIn = queue['in']
 		self.queueOut = queue['out']
 		self.serial = serial
+		self.setDaemon(True)
+		self.start()
 	
 	def run(self):
 		if not hasattr(self, 'serial'):

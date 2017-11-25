@@ -1,3 +1,4 @@
+from . import PLinkCommandManager
 from . import PLinkCore
 from . import XBeeCore
 from . import SerialInterface
@@ -7,10 +8,12 @@ ADDR_UNICAST_MAX = 0xFFFD
 ADDR_UNICAST_MIN = 0x0000
 
 class Network:
-	def __init__(self):
+	def __init__(self, queue):
+		self.queue = queue
+	
 		# Set up network.
-		self.hosts = Network.KnownHosts(self)
-		self.transmissionMgr = Network.TransmissionManager(self.hosts, self.queue)
+		self.hosts = KnownHosts(self)
+		self.transmissionMgr = TransmissionManager(self.hosts, self.queue)
 		self.commandMgr = PLinkCommandManager.PLinkCommandManager(self.transmissionMgr)
 		
 		# Register network commands.
@@ -20,14 +23,19 @@ class Network:
 			callback = self.hosts.onNetReply)
 		self.commandMgr.registerCommand("NET_BROADCAST",
 			callback = self.hosts.onNetBroadcast)
+		
+		# Send out initial request.
+		self.commandMgr.sendCommand(self.hosts.broadcast, "NET_REQUEST")
 
 class TransmissionManager:
 	def __init__(self, hosts, queue):
 		self.hosts = hosts
 		self.queueOut = queue['out']
 
-	def transmit(destination, packet, options = 0):
-		host = self.hosts.getHostByAddress(destination)
+	def transmit(self, destination, packet, options = 0):
+		host = destination#self.hosts.getHostByAddress(destination)
+		
+		print("SEND PACKET TO " + str(host.address))
 		
 		# Set packet sequence number.
 		if host.packetCounter >= 0xFFFF:
@@ -38,7 +46,7 @@ class TransmissionManager:
 		
 		# Add packet to retransmission list.
 		data = packet.serialize()
-		self.registerPacket(packet.sequence, data)
+		self._registerPacket(packet.sequence, data)
 		
 		# Split data into multiple frames.
 		length = len(data)
@@ -55,12 +63,13 @@ class TransmissionManager:
 			# Construct frame.
 			frame = XBeeCore.XBeeFrame(
 				host.frameCounter,
-				destination,
+				host.address,
 				options,
 				payload)
 			
 			# Transmit frame
 			serializedFrame = frame.serialize()
+			print("Added to queue: " + str(serializedFrame))
 			self.queueOut.put(serializedFrame)
 	
 	def _registerPacket(self, id, packetSer):

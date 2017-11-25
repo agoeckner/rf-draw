@@ -1,6 +1,7 @@
 import app
 from comms import *
 import os
+import serial
 import queue
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), '/config.ini')
@@ -11,7 +12,7 @@ class RFDraw:
 		# config = ConfigParser.SafeConfigParser()
 		# config.read(CONFIG_FILE)
 		comms_baud_rate = 115200 #config.get("comms", "baud_rate")
-		comms_port = "/dev/null" #config.get("comms", "port")
+		comms_port = "COM1" #config.get("comms", "port")
 
 		# Set up inter-thread communication queues.
 		self.queue = {
@@ -25,14 +26,14 @@ class RFDraw:
 		except serial.SerialException as e:
 			print("ERROR: Could not connect to radio!")
 			raise e
-		self.serialIn = SerialInterface.SerialReader(self.serial, self.queue)
+		# self.serialIn = SerialInterface.SerialReader(self.serial, self.queue)
 		self.serialOut = SerialInterface.SerialWriter(self.serial, self.queue)
 		
 		# Set up network.
-		self.network = Network.Network()
+		self.network = Network.Network(self.queue)
 		
 		# Set up the UI.
-		self.app = app.MyPaintApp(self.netTransmissionMgr)
+		self.app = app.MyPaintApp(self.network)
 	
 	def run(self):
 		self.app.run()
