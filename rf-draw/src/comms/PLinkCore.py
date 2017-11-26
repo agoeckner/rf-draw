@@ -10,29 +10,19 @@ PLINK_FORMAT_HEADER = '!BHBHH'
 PLINK_FORMAT_CHECKSUM = '!I'
 
 class PLinkPacket:
-	# Create a new packet.
-	def __init__(self,
-			options = 0, # always 0
-			sequence = 0, # 2 byte uint
-			commandID = 0, # same as above
-			payload = None): # byte arr with val of its length <= 2 byte uint
-		self.options = options
-		self.sequence = sequence
-		self.commandID = commandID
-		self.payload = payload
-	
-	# Create a new packet from a serialized packet.
 	def __init__(self,
 			byteArray = None,
 			options = 0,
 			sequence = 0,
 			commandID = 0,
 			payload = None):
+		# Create a new packet.
 		if byteArray == None:
 			self.options = options
 			self.sequence = sequence
 			self.commandID = commandID
 			self.payload = payload
+		# Create a new packet from a serialized packet.
 		else:
 			if len(packetArray) < PLINK_SIZE_EMPTY_PACKET:
 				raise InvalidPacket("Packet size less than minimum possible.")

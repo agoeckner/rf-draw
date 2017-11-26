@@ -24,17 +24,14 @@ class SerialReader(threading.Thread):
 		frameLen = 0
 		while True:
 			try:
-				print("WAITING FOR DATA")
 				# Beginning of frame.
 				startByte = self.serial.read(size=1)
 				while ord(startByte) != XBeeCore.XBEE_START_BYTE:
-					print("NO MATCH: " + str(startByte) + " vs " + str(XBeeCore.XBEE_START_BYTE))
 					startByte = self.serial.read(size=1)
-				print("GOT START BYTE: " + str(startByte))
+
 				# Read length.
 				rawLength = self.serial.read(size=2)
 				length = struct.unpack("!H", rawLength)[0]
-				print("GOT LENGTH: " + str(length))
 
 				# Read data and checksum.
 				remainder = self.serial.read(size=length + XBeeCore.XBEE_SIZE_CHECKSUM)
@@ -42,9 +39,7 @@ class SerialReader(threading.Thread):
 				try:
 					frame = XBeeCore.XBeeFrame(
 						byteArray = startByte + rawLength + remainder)
-					print("GOT FRAME WITH ID " + str(frame.frameID))
-					# print(":".join("{:02x}".format(ord(c)) for c in frame.payload))
-					print("PAYLOAD: " + str(frame.payload))
+					self.queueOut.put(frame)
 				except InvalidFrame as e:
 					print("ERROR: " + str(e))
 				
