@@ -14,7 +14,7 @@ PLINK_FORMAT_CHECKSUM = '!I'
 
 # Autentication and Message Integrity
 SESSION_KEY = b""
-DIG_SIZE2 = 4 # in bytes
+DIG_SIZE = 4 # in bytes
 PRESHARED_KEY = b"34c0eb22f5f08c4ad26c05a84aefd70c95fce0691ee0f967e14cf4f6a63d8ccb"
 SESSION_PIN = b""
 
@@ -80,6 +80,9 @@ class PLinkPacket:
 
 '''
 Set Global Session PIN
+	- Call on session init.
+	- Send first packet with empty pin
+	- Packet will still have a preshared key HMAC
 '''
 def set_pin(pin): # string pin
 	global SESSION_PIN
@@ -88,13 +91,16 @@ def set_pin(pin): # string pin
 '''
 Convert arbitrary PIN to a 256-bit key
 '''
-def pin_to_key(pin):
+def pin_to_key(pin): # byte pin
 	h = hashlib.sha256()
 	h.update(pin)
+	# print( "Got pin: ")
+	# print( pin) 
 	return h.digest()
 
 '''
 Set Global Session Key
+	- Call after set_pin()
 '''
 def set_key():
 	today = datetime.datetime.now()
@@ -102,12 +108,14 @@ def set_key():
 	temp = bytes(r) # rondomness
 	global SESSION_KEY 
 	SESSION_KEY = pin_to_key(SESSION_PIN + temp + PRESHARED_KEY )
+	# print( "Session Key set:")
+	# print( SESSION_KEY )
 
 '''
 	blake2s HMAC library example
 '''
 def blake2s_hmac(packet):
-	h = hashlib.blake2s( digest_size=DIG_SIZE2, key=SESSION_KEY )
+	h = hashlib.blake2s( digest_size=DIG_SIZE, key=SESSION_KEY )
 	h.update(packet)
 	# print("Digest Size: " + str(h.digest_size) )
 	return h.digest()
