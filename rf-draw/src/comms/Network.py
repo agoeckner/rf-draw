@@ -69,7 +69,6 @@ class TransmissionManager:
 			
 			# Transmit frame
 			serializedFrame = frame.serialize()
-			print("Added to queue: " + str(serializedFrame))
 			self.queueOut.put(serializedFrame)
 	
 	def _registerPacket(self, id, packetSer):

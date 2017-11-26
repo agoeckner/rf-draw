@@ -26,7 +26,7 @@ class RFDraw:
 		except serial.SerialException as e:
 			print("ERROR: Could not connect to radio!")
 			raise e
-		# self.serialIn = SerialInterface.SerialReader(self.serial, self.queue)
+		self.serialIn = SerialInterface.SerialReader(self.serial, self.queue)
 		self.serialOut = SerialInterface.SerialWriter(self.serial, self.queue)
 		
 		# Set up network.

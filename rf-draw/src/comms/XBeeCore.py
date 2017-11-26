@@ -1,4 +1,4 @@
-from . import Exceptions
+from .Exceptions import *
 import struct
 
 # Frame configuration.
@@ -79,9 +79,7 @@ class XBeeFrame:
 				length = len(txPayload)
 				if length > TX_SIZE_MAX_PAYLOAD:
 					raise InvalidFrame("Payload size cannot be greater than 100.")
-				if header[1] != length:
-					raise InvalidFrame("Frame size does not match stated size.")
-				self.payload = payload
+				self.payload = txPayload
 			
 			# Process Rx frames.
 			elif self.apiID == RX_API_ID:
@@ -95,9 +93,7 @@ class XBeeFrame:
 				length = len(rxPayload)
 				if length > RX_SIZE_MAX_PAYLOAD:
 					raise InvalidFrame("Payload size cannot be greater than 100.")
-				if header[1] != length:
-					raise InvalidFrame("Frame size does not match stated size.")
-				self.payload = payload
+				self.payload = rxPayload
 			
 			# Process Tx Status frames.
 			elif self.apiID == TXS_API_ID:
@@ -129,8 +125,8 @@ class XBeeFrame:
 			TX_API_ID)
 		
 		frame = header + payload
-		checksum = struct.pack(XBEE_FORMAT_CHECKSUM, (
-			calculateChecksum(frame[3:])))
+		checksum = struct.pack(XBEE_FORMAT_CHECKSUM, 
+			calculateChecksum(frame[3:]))
 		
 		return bytes(frame + checksum)
 
