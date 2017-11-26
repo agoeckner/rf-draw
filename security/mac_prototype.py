@@ -1,7 +1,8 @@
 import hmac
 import hashlib
 import base64
-# from pyblake2 import blake2b
+import time
+import datetime
 
 '''
 Convert arbitrary PIN to a 256-bit key
@@ -30,8 +31,11 @@ def sha256_verify(key, packet, sig):
 '''
 	blake2s HMAC library example
 '''
-KEY2 = pin_to_key(b"222")
 DIG_SIZE2 = 4 # in bytes
+KEY2 = b""
+S_KEY = b"34c0eb22f5f08c4ad26c05a84aefd70c95fce0691ee0f967e14cf4f6a63d8ccb"
+S_PIN = b"12345"
+
 def blake2s_hmac(packet):
 	# h = hmac.new(KEY2, digestmod=hashlib.blake2s)	
 	h = hashlib.blake2s( digest_size=DIG_SIZE2, key=KEY2 )
@@ -44,19 +48,29 @@ def blake2s_verify(packet, sig):
 	# use compare_digest() for timing based attacks
 	return hmac.compare_digest(good_sig, sig)
 
+def set_key():
+	today = datetime.datetime.now()
+	r = today.day + today.month + today.year
+	temp = bytes(r)
+	global KEY2 
+	KEY2 = pin_to_key(S_PIN + temp + S_KEY  )
 
 def main():
+	set_key()
 	packet = b"098928472someinforandsomecommand<<end"
 	invalid_packet = b"098928472someinforandsomecommand<<<end"
 	invalid_sig = b"e3c8102868d28b5ff85fc35dda07329970d1a01e273c37481326fe0c861c8142"
 
 	# Begin calls
 	sig = blake2s_hmac(packet)
+
+	print( KEY2 )
 	
 	print( blake2s_verify(packet, sig) )
 	print( blake2s_verify(packet, invalid_sig) )
 	print( blake2s_verify(invalid_packet, sig) )
 	print( blake2s_verify(invalid_packet, invalid_sig) )
+	
 
 
 if __name__ == '__main__':

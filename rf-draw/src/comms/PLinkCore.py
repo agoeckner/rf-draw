@@ -1,5 +1,8 @@
 from . import Exceptions
 import struct
+import hmac
+import hashlib
+import datetime
 
 # Packet configuration.
 PLINK_SIZE_HEADER = 8
@@ -8,6 +11,12 @@ PLINK_SIZE_EMPTY_PACKET = PLINK_SIZE_HEADER + PLINK_SIZE_CHECKSUM
 PLINK_START_BYTE = 0xEB
 PLINK_FORMAT_HEADER = '!BHBHH'
 PLINK_FORMAT_CHECKSUM = '!I'
+
+# Autentication and Message Integrity
+SESSION_KEY = b""
+DIG_SIZE2 = 4 # in bytes
+PRESHARED_KEY = b"34c0eb22f5f08c4ad26c05a84aefd70c95fce0691ee0f967e14cf4f6a63d8ccb"
+SESSION_PIN = b""
 
 class PLinkPacket:
 	def __init__(self,
@@ -46,8 +55,8 @@ class PLinkPacket:
 				byteArray[-PLINK_SIZE_CHECKSUM:])[0]
 
 			# Verify checksum
-			localChecksum = calculateChecksum(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]))
-			if localChecksum != checksum:
+			# localChecksum = calculateChecksum(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]))
+			if !blake2s_verify(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]), checksum): #localChecksum != checksum:
 				raise InvalidPacket("Checksum does not match.")
 
 			# Pull out the payload
@@ -69,24 +78,45 @@ class PLinkPacket:
 		
 		return message + packedChecksum
 
-# This function gets the CRC value of a bytearray
+'''
+Set Global Session PIN
+'''
+def set_pin(pin): # string pin
+	global SESSION_PIN
+	SESSION_PIN = bytes(pin)
+
+'''
+Convert arbitrary PIN to a 256-bit key
+'''
+def pin_to_key(pin):
+	h = hashlib.sha256()
+	h.update(pin)
+	return h.digest()
+
+'''
+Set Global Session Key
+'''
+def set_key():
+	today = datetime.datetime.now()
+	r = today.day + today.month + today.year
+	temp = bytes(r) # rondomness
+	global SESSION_KEY 
+	SESSION_KEY = pin_to_key(SESSION_PIN + temp + PRESHARED_KEY )
+
+'''
+	blake2s HMAC library example
+'''
+def blake2s_hmac(packet):
+	h = hashlib.blake2s( digest_size=DIG_SIZE2, key=SESSION_KEY )
+	h.update(packet)
+	# print("Digest Size: " + str(h.digest_size) )
+	return h.digest()
+
+def blake2s_verify(packet, sig):
+	good_sig = blake2s_hmac(packet)
+	# use compare_digest() for timing based attacks
+	return hmac.compare_digest(good_sig, sig)
+
+# This function gets the authenticated checksum of a bytearray
 def calculateChecksum(array):
-	length = len(array) - 1
-	poly = 0x8005
-	crc = 0xFFFFFFFF
-	idx = 0
-	# while length >= 0:
-		# byte = int(struct.unpack('B', array[idx])[0])
-		# crc = crc ^ (0xFF & byte)
-		# i = 0
-		# while i < 8:
-			# if ((crc & 0x8000) ^ 0x8001) == 1:
-				# # Python does weird stuff, so truncate to 4 bytes
-				# crc = ((crc << 1) ^ poly) & 0xFFFF
-			# else:
-				# # Python does weird stuff, so truncate to 4 bytes
-				# crc = (crc << 1) & 0xFFFF
-			# i += 1
-		# idx += 1
-		# length -= 1
-	return crc
+	return blake2s_hmac(array)
