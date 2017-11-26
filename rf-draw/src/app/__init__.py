@@ -31,6 +31,8 @@ class MyPaintWidget(Widget):
 		self.line[identifier].points += [x, y]
 
 	def on_touch_move(self, touch):
+		if random() > 0.40:
+			return
 		self.lineContinue('local', touch.x, touch.y)
 		self.app.network.commandMgr.sendCommand(
 			self.app.network.hosts.broadcast,
