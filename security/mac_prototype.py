@@ -48,6 +48,7 @@ def blake2s_verify(packet, sig):
 	# use compare_digest() for timing based attacks
 	return hmac.compare_digest(good_sig, sig)
 
+
 def set_key():
 	today = datetime.datetime.now()
 	r = today.day + today.month + today.year

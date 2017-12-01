@@ -56,7 +56,7 @@ class PLinkPacket:
 
 			# Verify checksum
 			# localChecksum = calculateChecksum(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]))
-			if !blake2s_verify(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]), checksum): #localChecksum != checksum:
+			if not blake2s_verify(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]), checksum): #localChecksum != checksum:
 				raise InvalidPacket("Checksum does not match.")
 
 			# Pull out the payload
