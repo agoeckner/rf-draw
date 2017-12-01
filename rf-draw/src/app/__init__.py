@@ -7,6 +7,10 @@ from kivy.clock import Clock
 from kivy.uix.widget import Widget
 from kivy.uix.button import Button
 from kivy.graphics import Color, Ellipse, Line
+from kivy.core.window import Window
+from kivy.config import Config
+import hashlib
+import datetime
 
 from app import globals
 
@@ -32,8 +36,8 @@ def set_key():
 	# global SESSION_KEY
 	# global PRESHARED_KEY 
 	globals.SESSION_KEY = pin_to_key(globals.S_PIN + temp + globals.PRESHARED_KEY  )
-	print("Session Pin:")
-	print()	
+	print("[Draw] Session Pin:")
+	print(globals.SESSION_KEY)	
 
 
 class MyPaintWidget(Widget):
