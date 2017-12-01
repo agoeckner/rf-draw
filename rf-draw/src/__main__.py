@@ -1,3 +1,4 @@
+import argparse
 import app
 from comms import *
 import os
@@ -8,6 +9,13 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), '/config.ini')
 
 class RFDraw:
 	def __init__(self):
+		# Parse command-line arguments.
+		args = argparse.ArgumentParser(
+			description = "The RF-Draw device software.")
+		args.add_argument('--port')
+		args.parse_args()
+		print(args.port)
+	
 		# Import settings
 		# config = ConfigParser.SafeConfigParser()
 		# config.read(CONFIG_FILE)
