@@ -14,7 +14,7 @@ class Network:
 		# Set up network.
 		self.hosts = KnownHosts(self)
 		self.transmissionMgr = TransmissionManager(self.hosts, self.queue)
-		self.commandMgr = PLinkCommandManager.PLinkCommandManager(self.transmissionMgr)
+		self.commandMgr = PLinkCommandManager.PLinkCommandManager(self, queue)
 		
 		# Register network commands.
 		self.commandMgr.registerCommand("NET_REQUEST",
@@ -101,7 +101,7 @@ class KnownHosts:
 	def onNetRequest(self, source):
 		if source not in self.hosts:
 			self.registerHost(Host(source))
-		self.network.transmissionMgr.sendCommand(source, "NET_REPLY")
+		self.network.commandMgr.sendCommand(source, "NET_REPLY")
 	
 	def onNetReply(self, source):
 		if source not in self.hosts:

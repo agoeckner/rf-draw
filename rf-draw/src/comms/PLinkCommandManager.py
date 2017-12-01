@@ -1,13 +1,18 @@
 from . import Exceptions
 from . import PLinkCore
+from . import XBeeCore
 import struct
+import queue
 
 class PLinkCommandManager:
-	def __init__(self, transmissionMgr):
+	def __init__(self, network, queue):
+		self.queueIn = queue['in']
+		print("CMDMGR QUEUEIN " + str(self.queueIn))
 		self.cmdCount = 0
 		self.commandByID = {}
 		self.commandByName = {}
-		self.transmissionMgr = transmissionMgr
+		self.hosts = network.hosts
+		self.transmissionMgr = network.transmissionMgr
 
 	# Registers a new PLink command. `paramaters` is a list of tuples
 	# containing the name and the py.struct type of the parameter.
@@ -18,6 +23,21 @@ class PLinkCommandManager:
 		self.commandByName[name] = cmd
 		self.cmdCount += 1
 	
+	def drainInboundQueue(self, dt):
+		while True:
+			try:
+				frame = self.queueIn.get(False)
+			except queue.Empty:
+				break
+			print("Received frame with API ID " + str(frame.apiID))
+			# if frame.apiID != XBeeCore.RX_API_ID:
+				# continue
+			try:
+				packet = PLinkCore.PLinkPacket(byteArray = frame.payload)
+				self.parseCommandPacket(0xFFFE, packet)
+			except Exceptions.InvalidPacket as e:
+				print("PACKET ERROR: " + str(e))
+	
 	def parseCommandPacket(self, source, packet):
 		try:
 			# Get command object.
@@ -26,7 +46,13 @@ class PLinkCommandManager:
 			raise PLInvalidCommand(packet.commandID)
 		# Unpack parameters and call callback.
 		data = struct.unpack(cmd.format, packet.payload)
-		cmd.callback(source, *data)
+		print("RECEIVED COMMAND: " + str(cmd.name))
+		#TODO
+		try:
+			host = self.hosts.getHostByAddress(source)
+		except:
+			host = self.hosts.broadcast
+		cmd.callback(host, *data)
 	
 	def sendCommand(self, destination, cmdName, parameters=(), options=0):
 		try:

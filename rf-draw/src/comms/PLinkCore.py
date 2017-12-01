@@ -33,34 +33,33 @@ class PLinkPacket:
 			self.payload = payload
 		# Create a new packet from a serialized packet.
 		else:
-			if len(packetArray) < PLINK_SIZE_EMPTY_PACKET:
-				raise InvalidPacket("Packet size less than minimum possible.")
+			if len(byteArray) < PLINK_SIZE_EMPTY_PACKET:
+				raise Exceptions.InvalidPacket("Packet size less than minimum possible.")
 
 			# Unpack the header
 			header = struct.unpack(PLINK_FORMAT_HEADER,
 				byteArray[0:PLINK_SIZE_HEADER])
 			if header[0] != PLINK_START_BYTE:
-				raise InvalidPacket("Invalid start byte.")
+				raise Exceptions.InvalidPacket("Invalid start byte.")
 			if header[1] + PLINK_SIZE_EMPTY_PACKET != len(byteArray):
-				raise InvalidPacket("Packet size does not match stated size.")
+				raise Exceptions.InvalidPacket("Packet size does not match stated size.")
 			self.options = header[2]
 			try:
 				self.sequence = int(header[3])
 				self.commandID = int(header[4])
 			except ValueError:
-				raise InvalidPacket("Packet has malformed integer values.")
+				raise Exceptions.InvalidPacket("Packet has malformed integer values.")
 
 			# Unpack the checksum
-			checksum = struct.unpack(PLINK_FORMAT_CHECKSUM,
-				byteArray[-PLINK_SIZE_CHECKSUM:])[0]
+			checksum = byteArray[-PLINK_SIZE_CHECKSUM:]
 
 			# Verify checksum
-			# localChecksum = calculateChecksum(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]))
-			if not blake2s_verify(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]), checksum): #localChecksum != checksum:
-				raise InvalidPacket("Checksum does not match.")
+
+			if not blake2s_verify(bytes(byteArray[:-PLINK_SIZE_CHECKSUM]), checksum):
+				raise Exceptions.InvalidPacket("Checksum does not match.")
 
 			# Pull out the payload
-			self.payload = packetArray[PLINK_SIZE_HEADER:-PLINK_SIZE_CHECKSUM]
+			self.payload = byteArray[PLINK_SIZE_HEADER:-PLINK_SIZE_CHECKSUM]
 
 	def serialize(self):
 		# Construct the header
@@ -73,10 +72,9 @@ class PLinkPacket:
 		message = packedHeader + self.payload
 		
 		# Calculate the checksum.
-		checksum = calculateChecksum(bytes(message))
-		packedChecksum = struct.pack(PLINK_FORMAT_CHECKSUM, checksum)
+		checksum = blake2s_hmac(bytes(message))
 		
-		return message + packedChecksum
+		return message + checksum
 
 '''
 Set Global Session PIN
@@ -124,7 +122,3 @@ def blake2s_verify(packet, sig):
 	good_sig = blake2s_hmac(packet)
 	# use compare_digest() for timing based attacks
 	return hmac.compare_digest(good_sig, sig)
-
-# This function gets the authenticated checksum of a bytearray
-def calculateChecksum(array):
-	return blake2s_hmac(array)

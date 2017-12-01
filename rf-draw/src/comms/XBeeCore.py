@@ -88,7 +88,7 @@ class XBeeFrame:
 				rxHeader = struct.unpack(RX_FORMAT_HEADER, payload[:RX_SIZE_HEADER])
 				self.source = rxHeader[0]
 				self.rssi = rxHeader[1]
-				self.options = txHeader[2]
+				self.options = rxHeader[2]
 				rxPayload = payload[RX_SIZE_HEADER:]
 				length = len(rxPayload)
 				if length > RX_SIZE_MAX_PAYLOAD:
@@ -132,17 +132,12 @@ class XBeeFrame:
 
 # This function gets the CRC value of a bytearray
 def calculateChecksum(array):
-	total = 0
-	for byte in array:
-		total += int(byte)
-	total = 0xFF & total
+	total = sum(array) % 256
 	return 0xFF - total
 
 # Returns true iff checksum is valid.
 def verifyChecksum(array):
-	total = 0
-	for byte in array:
-		total += int(byte)
+	total = sum(array) % 256
 	return total == 0xFF
 	
 	
