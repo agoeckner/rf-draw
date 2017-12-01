@@ -9,6 +9,8 @@ class SerialReader(threading.Thread):
 	def __init__(self, serial, queue):
 		threading.Thread.__init__(self)
 		print("Initializing SerialReader.")
+		self.queueIn = queue['in']
+		print("SERIALREADER QUEUEIN " + str(self.queueIn))
 		self.queueOut = queue['out']
 		self.serial = serial
 		self.setDaemon(True)
@@ -39,7 +41,11 @@ class SerialReader(threading.Thread):
 				try:
 					frame = XBeeCore.XBeeFrame(
 						byteArray = startByte + rawLength + remainder)
-					self.queueOut.put(frame)
+					print("GOT FRAME: " + str(frame))
+					# print("SOURCE: " + str(frame.source))
+					# print("RSSI: " + str(frame.rssi))
+					print("PAYLOAD: " + str(frame.payload))
+					self.queueIn.put(frame)
 				except InvalidFrame as e:
 					print("ERROR: " + str(e))
 				
@@ -64,7 +70,7 @@ class SerialWriter(threading.Thread):
 			try:
 				frame = self.queueOut.get(block=True)
 				self.serial.write(frame)
-			except SerialException as e:
+			except serial.SerialException as e:
 				raise SerialInterfaceException("transmit failed")
 
 class SerialInterfaceException(Exception): pass
