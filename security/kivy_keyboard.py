@@ -36,9 +36,9 @@ class KeyboardDemo(App):
 			self._keyboard.unbind(on_key_up=self.key_up)
 			self._keyboard = None
 
-	def key_down(self, keyboard, keycode, text, modifiers):
-		""" The callback function that catches keyboard events. """
-		self.displayLabel.text = u"Key pressed - {0}".format(text)
+	# def key_down(self, keyboard, keycode, text, modifiers):
+	# 	""" The callback function that catches keyboard events. """
+	# 	self.displayLabel.text = u"Key pressed - {0}".format(text)
 
 	# def key_up(self, keyboard, keycode):
 	def key_up(self, keyboard, keycode, *args):
@@ -51,6 +51,8 @@ class KeyboardDemo(App):
 		print(self.input)
 
 	def build(self):
+		Config.set("kivy", "keyboard_mode", 'dock')
+        Config.write()
 		self.set_layout('numeric.json' )
 		self.input = ''
 
