@@ -8,7 +8,7 @@ __pycache__/
 
 security/keyboard_main.py.bak
 security/kivy_k2.py
-security/kivy_keyboard.py
+security/keyboard_main.py
 
 # Distribution / packaging
 .Python
