@@ -27,7 +27,7 @@ class RFDraw:
 		parser.add_argument(
 			'--port',
 			nargs = 1,
-			default = ["COM1"])
+			default = ["/dev/null"])  # ["COM1"])
 		args = parser.parse_args(argv)
 	
 		# Import settings
@@ -48,6 +48,9 @@ class RFDraw:
 			self.serial = serial.Serial(comms_port, comms_baud_rate)
 		except serial.SerialException as e:
 			print("ERROR: Could not connect to radio!")
+			print("Restarting application...")
+			# os.execv(sys.executable, ['python'] + sys.argv)
+			exit(-1)
 			raise e
 		self.serialIn = SerialInterface.SerialReader(self.serial, self.queue)
 		self.serialOut = SerialInterface.SerialWriter(self.serial, self.queue)

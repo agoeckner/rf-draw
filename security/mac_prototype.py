@@ -4,6 +4,7 @@ import base64
 import time
 import datetime
 
+
 '''
 Convert arbitrary PIN to a 256-bit key
 '''
@@ -57,7 +58,18 @@ def set_key():
 	KEY2 = pin_to_key(S_PIN + temp + S_KEY  )
 
 def main():
+	# set S_PIN with virtual keyboard
+
+	keyboard = Window.request_keyboard(
+    self._keyboard_close, self)
+	if keyboard.widget:
+	    vkeyboard = self._keyboard.widget
+	    vkeyboard.layout = 'numeric.json'
+
+
 	set_key()
+	print(S_PIN)
+
 	packet = b"098928472someinforandsomecommand<<end"
 	invalid_packet = b"098928472someinforandsomecommand<<<end"
 	invalid_sig = b"e3c8102868d28b5ff85fc35dda07329970d1a01e273c37481326fe0c861c8142"

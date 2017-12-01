@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+security/keyboard_main.py.bak
+security/kivy_k2.py
+security/kivy_keyboard.py
+
 # Distribution / packaging
 .Python
 env/
