@@ -1,4 +1,13 @@
 import argparse
+import sys
+
+if __name__ == '__main__':
+	argv = []
+	if "--" in sys.argv:
+		index = sys.argv.index("--")
+		argv = sys.argv[1:index]
+		sys.argv = [sys.argv[0]] + sys.argv[index+1:]
+
 import app
 from comms import *
 import os
@@ -10,17 +19,23 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), '/config.ini')
 class RFDraw:
 	def __init__(self):
 		# Parse command-line arguments.
-		args = argparse.ArgumentParser(
+		global argv
+		
+		parser = argparse.ArgumentParser(
+			prog = "rf-draw",
 			description = "The RF-Draw device software.")
-		args.add_argument('--port')
-		args.parse_args()
-		print(args.port)
+		parser.add_argument(
+			'--port',
+			nargs = 1,
+			default = ["COM1"])
+		args = parser.parse_args(argv)
 	
 		# Import settings
 		# config = ConfigParser.SafeConfigParser()
 		# config.read(CONFIG_FILE)
-		comms_baud_rate = 115200 #config.get("comms", "baud_rate")
-		comms_port = "COM1" #config.get("comms", "port")
+		comms_baud_rate = 57600 #config.get("comms", "baud_rate")
+		comms_port = args.port[0]#"COM1" #config.get("comms", "port")
+		print("Using serial port " + str(comms_port) + ".")
 
 		# Set up inter-thread communication queues.
 		self.queue = {
