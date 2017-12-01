@@ -66,5 +66,4 @@ class RFDraw:
 		self.app.run()
 
 if __name__ == '__main__':
-	keyboard.PinInput().run()
 	RFDraw().run()
