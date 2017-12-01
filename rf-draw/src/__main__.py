@@ -13,8 +13,9 @@ from comms import *
 import os
 import serial
 import queue
+from app import keyboard
 
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), '/config.ini')
+
 
 class RFDraw:
 	def __init__(self):
@@ -65,4 +66,5 @@ class RFDraw:
 		self.app.run()
 
 if __name__ == '__main__':
+	keyboard.PinInput().run()
 	RFDraw().run()
