@@ -19,7 +19,7 @@ class MyPaintWidget(Widget):
 		hue = random()
 		self.lineStart('local', hue, touch.x, touch.y)
 		self.app.network.commandMgr.sendCommand(
-			self.app.network.hosts.broadcast,
+			self.app.network.hosts.broadcast.address,
 			"APP_DRAW_TOUCH_DOWN",
 			(hue, touch.x, touch.y))
 	
@@ -39,7 +39,7 @@ class MyPaintWidget(Widget):
 			return
 		self.lineContinue('local', touch.x, touch.y)
 		self.app.network.commandMgr.sendCommand(
-			self.app.network.hosts.broadcast,
+			self.app.network.hosts.broadcast.address,
 			"APP_DRAW_TOUCH_CONTINUE",
 			(touch.x, touch.y))
 
@@ -84,7 +84,7 @@ class MyPaintApp(App):
 	def clear_canvas(self, obj):
 		self.painter.canvas.clear()
 		self.network.commandMgr.sendCommand(
-			self.network.hosts.broadcast,
+			self.network.hosts.broadcast.address,
 			"APP_DRAW_CLEAR",
 			())
 

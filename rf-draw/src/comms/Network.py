@@ -6,6 +6,7 @@ from . import Exceptions
 import queue
 from collections import deque
 from kivy.clock import Clock
+from random import randint
 
 ADDR_BROADCAST = 0xFFFF
 ADDR_UNICAST_MAX = 0xFFFD
@@ -13,10 +14,11 @@ ADDR_UNICAST_MIN = 0x0000
 
 OPTION_INFRASTRUCTURE = 0x80
 OPTION_IMPORTANT = 0x40
+OPTION_BROADCAST = 0x20
 
 TIMEOUT_PACKET_ACK = 5 #seconds
-TIMEOUT_DEVICE_DEAD = 15 #seconds
 TIMEOUT_SEND_HEARTBEAT = 5 #seconds
+HEARTBEAT_TICKS_DEAD = 3 #ticks
 
 class Network:
 	def __init__(self, queue):
@@ -49,8 +51,9 @@ class Network:
 		Clock.schedule_interval(self.hosts.onHeartbeatTick, TIMEOUT_SEND_HEARTBEAT)
 		
 		# Send out initial request.
-		self.commandMgr.sendCommand(self.hosts.broadcast, "NET_REQUEST",
-			options = OPTION_INFRASTRUCTURE)
+		self.commandMgr.sendCommand(ADDR_BROADCAST, "NET_REQUEST",
+			options = OPTION_INFRASTRUCTURE,
+			sequence = self.hosts.broadcast.packetCounter)
 
 class PacketManager:
 	def __init__(self, network, queue):
@@ -61,11 +64,11 @@ class PacketManager:
 		self.packets = {}
 		self.lastAck = {}
 
-	def transmit(self, destAddr, packet, options = 0, sequence = -1):
+	def transmit(self, destAddr, packet, options = 0, sequence = None):
 		destination = self.hosts.getHostByAddress(destAddr)
 		
-		if sequence == -1:
-			if options & OPTION_INFRASTRUCTURE:
+		if sequence == None:
+			if packet.options & OPTION_INFRASTRUCTURE:
 				packet.sequence = 0
 			else:
 				# Set packet sequence number.
@@ -108,7 +111,7 @@ class PacketManager:
 		self.packets[(destAddr, id)] = packet
 	
 	def onRetransmitTick(self, dt):
-		print("RETRANSMIT PACKETS")
+		pass#print("RETRANSMIT PACKETS")
 	
 	def _sendAcknowledgement(self, destAddr, positive, sequence):
 		if positive:
@@ -136,40 +139,42 @@ class PacketManager:
 	
 	def drainInboundQueue(self, dt):
 		while True:
+			# Get frame from inbound queue.
 			try:
 				frame = self.queueIn.get(False)
 			except queue.Empty:
 				break
+			
+			# Handle RX frames. (Or TX in the case of direct serial
+			# connection with no radios.)
 			if frame.apiID == XBeeCore.RX_API_ID or\
 					frame.apiID == XBeeCore.TX_API_ID:
 				try:
 					packet = PLinkCore.PLinkPacket(byteArray = frame.payload)
-					print("GOT PACKET WITH OPTIONS " + str(packet.options))
 					if not (packet.options & OPTION_INFRASTRUCTURE):
 						try:
 							source = self.hosts.getHostByAddress(frame.source)
-						except UnknownHostException:
-							source = Host(frame.source)
+						except:
+							continue
 						
 						# Drop packets that are out of order.
-						print("LASTRXSEQUENCE: " + str(source.rxLastPacketSequence) + " SEQUENCE: " + str(packet.sequence))
-						if source.rxLastPacketSequence + 1 != packet.sequence:
-							print("packet out of order. Dropping")
+						isBroadcast = packet.options & OPTION_BROADCAST
+						if not source.checkAndSetSequence(isBroadcast, packet.sequence):
+							# in this case, send NACK containing last good packet.
+							# sender will retransmit important packets, resetting packetCounter
+							# reset packet counter with special infrastructure packet?
 							continue
-						source.rxLastPacketSequence = packet.sequence
 					
 					self.network.commandMgr.parseCommandPacket(frame.source, packet)
 				except Exceptions.InvalidPacket as e:
 					print("PACKET ERROR: " + str(e))
-		
 
 class KnownHosts:
 	def __init__(self, network):
 		self.network = network
-		self.netRequestSequence = 0
 		self.hosts = {}
 		self.hosts[ADDR_BROADCAST] = Host(ADDR_BROADCAST) #broadcast
-		self.broadcast = ADDR_BROADCAST
+		self.broadcast = self.hosts[ADDR_BROADCAST]
 	
 	def getHostByAddress(self, address):
 		if address < ADDR_UNICAST_MIN or (address > ADDR_UNICAST_MAX and \
@@ -185,40 +190,80 @@ class KnownHosts:
 		self.hosts[host.address] = host
 	
 	def unregisterHost(self, host):
-		self.hosts.pop(host.id, None)
+		print("REMOVED HOST WITH ADDRESS " + str(host.address))
+		self.hosts.pop(host.address, None)
 	
 	def onNetRequest(self, source, packet):
-		print("GOT NET REQUEST FROM " + str(source))
 		host = Host(source)
-		print("PACKET SEQUENCE " + str(packet.sequence))
-		host.rxLastPacketSequence = packet.sequence
+		host.setSequence(bool(packet.options & OPTION_BROADCAST), packet.sequence)
 		self.registerHost(host)
 		self.network.commandMgr.sendCommand(source, "NET_REPLY",
-			options = OPTION_INFRASTRUCTURE)
+			options = OPTION_INFRASTRUCTURE,
+			sequence = self.broadcast.packetCounter)
 	
 	def onNetReply(self, source, packet):
 		if source not in self.hosts:
 			host = Host(source)
-			host.rxLastPacketSequence = packet.sequence
-			print("GOT REPLY WITH SEQUENCE " + str(host.rxLastPacketSequence))
+			host.setSequence(True, packet.sequence)
 			self.registerHost(host)
 	
 	def onHeartbeatTick(self, dt):
 		self.network.commandMgr.sendCommand(ADDR_BROADCAST, "NET_HEARTBEAT",
 			options = OPTION_INFRASTRUCTURE)
 		# Check for expired heartbeats.
-		# raise Exception("NOT DONE")
+		remove = []
+		for addr in self.hosts:
+			if addr == ADDR_BROADCAST:
+				continue
+			host = self.hosts[addr]
+			host.heartbeatTicks += 1
+			if host.heartbeatTicks >= HEARTBEAT_TICKS_DEAD:
+				remove.append(host)
+		for host in remove:
+			self.unregisterHost(host)
 	
 	def onNetHeartbeat(self, source):
-		#TODO
-		pass
+		if source in self.hosts:
+			self.hosts[source].heartbeatTicks = 0
 
 class Host:
 	def __init__(self, address):
 		self.address = address
 		self.frameCounter = 0
-		self.packetCounter = 0
-		self.rxLastPacketSequence = 0
+		self.packetCounter = randint(0, 0xFFFD)
+		self.heartbeatTicks = 0
+		self.rxNextSeqUnicast = 0
+		self.rxNextSeqBroadcast = 0
+	
+	# Returns false if packet is out of order.
+	def checkAndSetSequence(self, isBroadcast, sequence):
+		if isBroadcast:
+			if sequence == self.rxNextSeqBroadcast:
+				if self.rxNextSeqBroadcast >= 0xFFFF:
+					self.rxNextSeqBroadcast = 1
+				else:
+					self.rxNextSeqBroadcast += 1
+				return True
+		else:
+			if sequence == self.rxNextSeqUnicast:
+				if self.rxNextSeqUnicast >= 0xFFFF:
+					self.rxNextSeqUnicast = 1
+				else:
+					self.rxNextSeqUnicast += 1
+				return True
+		return False
+	
+	def setSequence(self, isBroadcast, sequence):
+		if isBroadcast:
+			if self.rxNextSeqBroadcast >= 0xFFFF:
+				self.rxNextSeqBroadcast = 1
+			else:
+				self.rxNextSeqBroadcast = sequence + 1
+		else:
+			if self.rxNextSeqUnicast >= 0xFFFF:
+				self.rxNextSeqUnicast = 1
+			else:
+				self.rxNextSeqUnicast = sequence + 1
 
 class UnknownHostException(Exception): pass
 

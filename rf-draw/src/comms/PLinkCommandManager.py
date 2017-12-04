@@ -1,6 +1,7 @@
 from . import Exceptions
 from . import PLinkCore
 from . import XBeeCore
+from . import Network
 import struct
 import queue
 
@@ -32,24 +33,31 @@ class PLinkCommandManager:
 			raise PLInvalidCommand(packet.commandID)
 		# Unpack parameters and call callback.
 		data = struct.unpack(cmd.format, packet.payload)
-		print("RECEIVED COMMAND: " + str(cmd.name))
+		# print("RECEIVED COMMAND: " + str(cmd.name))
 		if cmd.passPacket:
 			cmd.callback(source, packet, *data)
 		else:
 			cmd.callback(source, *data)
 	
-	def sendCommand(self, destination, cmdName, parameters=(), options=0):
+	def sendCommand(self, destAddr, cmdName, parameters=(), options=0,
+			sequence=None):
 		try:
 			cmd = self.commandByName[cmdName]
 		except KeyError:
 			raise PLInvalidCommand(cmdName)
+		
+		# Add broadcast option.
+		if destAddr == Network.ADDR_BROADCAST:
+			options = options | Network.OPTION_BROADCAST
+		
+		# Construct packet.
 		data = struct.pack(cmd.format, *parameters)
 		packet = PLinkCore.PLinkPacket(
 			commandID = cmd.id,
 			payload = data,
 			options = options)
-		self.packetMgr.transmit(destination, packet)
-		print("SENT COMMAND: " + str(cmd.name))
+		self.packetMgr.transmit(destAddr, packet, sequence=sequence)
+		# print("SENT COMMAND: " + str(cmd.name))
 
 class PLCommand:
 	def __init__(self, id, name, parameters, callback, passPacket):
