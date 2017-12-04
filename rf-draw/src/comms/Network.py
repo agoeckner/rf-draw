@@ -2,10 +2,15 @@ from . import PLinkCommandManager
 from . import PLinkCore
 from . import XBeeCore
 from . import SerialInterface
+from . import Exceptions
+import queue
 
 ADDR_BROADCAST = 0xFFFF
 ADDR_UNICAST_MAX = 0xFFFD
 ADDR_UNICAST_MIN = 0x0000
+
+OPTION_INFRASTRUCTURE = 0x80
+OPTION_IMPORTANT = 0x40
 
 class Network:
 	def __init__(self, queue):
@@ -13,36 +18,39 @@ class Network:
 	
 		# Set up network.
 		self.hosts = KnownHosts(self)
-		self.transmissionMgr = TransmissionManager(self.hosts, self.queue)
+		self.packetMgr = PacketManager(self, queue)
 		self.commandMgr = PLinkCommandManager.PLinkCommandManager(self, queue)
 		
 		# Register network commands.
 		self.commandMgr.registerCommand("NET_REQUEST",
-			callback = self.hosts.onNetRequest)
+			callback = self.hosts.onNetRequest,
+			passPacket = True)
 		self.commandMgr.registerCommand("NET_REPLY",
-			callback = self.hosts.onNetReply)
+			callback = self.hosts.onNetReply,
+			passPacket = True)
 		self.commandMgr.registerCommand("NET_BROADCAST",
 			callback = self.hosts.onNetBroadcast)
 		
 		# Send out initial request.
-		self.commandMgr.sendCommand(self.hosts.broadcast, "NET_REQUEST")
+		self.commandMgr.sendCommand(self.hosts.broadcast, "NET_REQUEST",
+			options = OPTION_INFRASTRUCTURE)
 
-class TransmissionManager:
-	def __init__(self, hosts, queue):
-		self.hosts = hosts
+class PacketManager:
+	def __init__(self, network, queue):
+		self.network = network
+		self.hosts = network.hosts
+		self.queueIn = queue['in']
 		self.queueOut = queue['out']
 
-	def transmit(self, destination, packet, options = 0):
-		host = destination#self.hosts.getHostByAddress(destination)
-		
-		print("SEND PACKET TO " + str(host.address))
+	def transmit(self, destAddr, packet, options = 0):
+		destination = self.hosts.getHostByAddress(destAddr)
 		
 		# Set packet sequence number.
-		if host.packetCounter >= 0xFFFF:
-			host.packetCounter = 1
+		if destination.packetCounter >= 0xFFFF:
+			destination.packetCounter = 1
 		else:
-			host.packetCounter += 1
-		packet.sequence = host.packetCounter
+			destination.packetCounter += 1
+		packet.sequence = destination.packetCounter
 		
 		# Add packet to retransmission list.
 		data = packet.serialize()
@@ -55,15 +63,15 @@ class TransmissionManager:
 			payload = data[i:i+maxPayloadLen]
 			
 			# Set frame sequence number.
-			if host.frameCounter >= 0xFF:
-				host.frameCounter = 1
+			if destination.frameCounter >= 0xFF:
+				destination.frameCounter = 1
 			else:
-				host.frameCounter += 1
+				destination.frameCounter += 1
 			
 			# Construct frame.
 			frame = XBeeCore.XBeeFrame(
-				host.frameCounter,
-				host.address,
+				destination.frameCounter,
+				destination.address,
 				options,
 				payload)
 			
@@ -76,6 +84,34 @@ class TransmissionManager:
 	
 	def _ackPacket(self, id):
 		pass #packet acknowledged, remove from retransmission list
+	
+	def drainInboundQueue(self, dt):
+		while True:
+			try:
+				frame = self.queueIn.get(False)
+			except queue.Empty:
+				break
+			if frame.apiID == XBeeCore.RX_API_ID or\
+					frame.apiID == XBeeCore.TX_API_ID:
+				try:
+					packet = PLinkCore.PLinkPacket(byteArray = frame.payload)
+					print("GOT PACKET WITH OPTIONS " + str(packet.options))
+					if not (packet.options & OPTION_INFRASTRUCTURE):
+						try:
+							source = self.hosts.getHostByAddress(frame.source)
+						except UnknownHostException:
+							source = Host(frame.source)
+						
+						# Drop packets that are out of order.
+						print("LASTRXSEQUENCE: " + str(source.rxLastPacketSequence) + " SEQUENCE: " + str(packet.sequence))
+						if source.rxLastPacketSequence + 1 != packet.sequence:
+							print("packet out of order. Dropping")
+							continue
+						source.rxLastPacketSequence = packet.sequence
+					
+					self.network.commandMgr.parseCommandPacket(frame.source, packet)
+				except Exceptions.InvalidPacket as e:
+					print("PACKET ERROR: " + str(e))
 		
 
 class KnownHosts:
@@ -84,28 +120,39 @@ class KnownHosts:
 		self.netRequestSequence = 0
 		self.hosts = {}
 		self.hosts[ADDR_BROADCAST] = Host(ADDR_BROADCAST) #broadcast
-		self.broadcast = self.hosts[ADDR_BROADCAST]
+		self.broadcast = ADDR_BROADCAST
 	
 	def getHostByAddress(self, address):
+		if address < ADDR_UNICAST_MIN or (address > ADDR_UNICAST_MAX and \
+				address != ADDR_BROADCAST):
+			raise InvalidAddressException("Address out of range.")
 		try:
 			return self.hosts[address]
 		except KeyError:
 			raise UnknownHostException("No host with address " + str(address))
 	
 	def registerHost(self, host):
+		print("REGISTERED HOST WITH ADDRESS " + str(host.address))
 		self.hosts[host.address] = host
 	
 	def unregisterHost(self, host):
 		self.hosts.pop(host.id, None)
 	
-	def onNetRequest(self, source):
-		if source not in self.hosts:
-			self.registerHost(Host(source))
-		self.network.commandMgr.sendCommand(source, "NET_REPLY")
+	def onNetRequest(self, source, packet):
+		print("GOT NET REQUEST FROM " + str(source))
+		host = Host(source)
+		print("PACKET SEQUENCE " + str(packet.sequence))
+		host.rxLastPacketSequence = packet.sequence
+		self.registerHost(host)
+		self.network.commandMgr.sendCommand(source, "NET_REPLY",
+			options = OPTION_INFRASTRUCTURE)
 	
-	def onNetReply(self, source):
+	def onNetReply(self, source, packet):
 		if source not in self.hosts:
-			self.registerHost(Host(source))
+			host = Host(source)
+			host.rxLastPacketSequence = packet.sequence
+			print("GOT REPLY WITH SEQUENCE " + str(host.rxLastPacketSequence))
+			self.registerHost(host)
 	
 	def onNetBroadcast(self, source):
 		#TODO
@@ -116,5 +163,8 @@ class Host:
 		self.address = address
 		self.frameCounter = 0
 		self.packetCounter = 0
+		self.rxLastPacketSequence = 0
 
 class UnknownHostException(Exception): pass
+
+class InvalidAddressException(Exception): pass

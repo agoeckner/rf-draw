@@ -1,3 +1,7 @@
+# Turn off Kivy's console output.
+from kivy.config import Config
+Config.set("kivy", "log_level", "warning")
+
 import kivy
 kivy.require('1.0.6') # replace with your current kivy version !
 
@@ -32,7 +36,7 @@ class MyPaintWidget(Widget):
 		self.line[identifier].points += [x, y]
 
 	def on_touch_move(self, touch):
-		if random() > 0.40:
+		if random() > 0.50:
 			return
 		self.lineContinue('local', touch.x, touch.y)
 		self.app.network.commandMgr.sendCommand(
@@ -60,7 +64,7 @@ class MyPaintApp(App):
 			callback = self.onRemoteClear)
 		
 		# Set up packet handling tick.
-		Clock.schedule_interval(self.network.commandMgr.drainInboundQueue, 1 / 10.)
+		Clock.schedule_interval(self.network.packetMgr.drainInboundQueue, 1 / 10.)
 		
 	def onRemoteDrawStart(self, source, hue, x, y):
 		self.painter.lineStart(source, hue, x, y)
