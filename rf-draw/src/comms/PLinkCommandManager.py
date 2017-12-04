@@ -7,7 +7,6 @@ import queue
 class PLinkCommandManager:
 	def __init__(self, network, queue):
 		self.queueIn = queue['in']
-		print("CMDMGR QUEUEIN " + str(self.queueIn))
 		self.cmdCount = 0
 		self.commandByID = {}
 		self.commandByName = {}
@@ -23,6 +22,7 @@ class PLinkCommandManager:
 		self.commandByID[self.cmdCount] = cmd
 		self.commandByName[name] = cmd
 		self.cmdCount += 1
+		return cmd
 	
 	def parseCommandPacket(self, source, packet):
 		try:

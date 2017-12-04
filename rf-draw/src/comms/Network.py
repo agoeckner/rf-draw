@@ -4,6 +4,8 @@ from . import XBeeCore
 from . import SerialInterface
 from . import Exceptions
 import queue
+from collections import deque
+from kivy.clock import Clock
 
 ADDR_BROADCAST = 0xFFFF
 ADDR_UNICAST_MAX = 0xFFFD
@@ -11,6 +13,10 @@ ADDR_UNICAST_MIN = 0x0000
 
 OPTION_INFRASTRUCTURE = 0x80
 OPTION_IMPORTANT = 0x40
+
+TIMEOUT_PACKET_ACK = 5 #seconds
+TIMEOUT_DEVICE_DEAD = 15 #seconds
+TIMEOUT_SEND_HEARTBEAT = 5 #seconds
 
 class Network:
 	def __init__(self, queue):
@@ -28,8 +34,19 @@ class Network:
 		self.commandMgr.registerCommand("NET_REPLY",
 			callback = self.hosts.onNetReply,
 			passPacket = True)
-		self.commandMgr.registerCommand("NET_BROADCAST",
-			callback = self.hosts.onNetBroadcast)
+		self.commandMgr.registerCommand("NET_HEARTBEAT",
+			callback = self.hosts.onNetHeartbeat)
+		self.cmdAck = self.commandMgr.registerCommand("NET_ACK",
+			callback = self.packetMgr.onPacketAck,
+			passPacket = True)
+		self.cmdNAck = self.commandMgr.registerCommand("NET_NACK",
+			callback = self.packetMgr.onPacketNegAck,
+			passPacket = True)
+		
+		# Set up timers.
+		Clock.schedule_interval(self.packetMgr.drainInboundQueue, 1 / 10.)
+		Clock.schedule_interval(self.packetMgr.onRetransmitTick, TIMEOUT_PACKET_ACK)
+		Clock.schedule_interval(self.hosts.onHeartbeatTick, TIMEOUT_SEND_HEARTBEAT)
 		
 		# Send out initial request.
 		self.commandMgr.sendCommand(self.hosts.broadcast, "NET_REQUEST",
@@ -41,20 +58,28 @@ class PacketManager:
 		self.hosts = network.hosts
 		self.queueIn = queue['in']
 		self.queueOut = queue['out']
+		self.packets = {}
+		self.lastAck = {}
 
-	def transmit(self, destAddr, packet, options = 0):
+	def transmit(self, destAddr, packet, options = 0, sequence = -1):
 		destination = self.hosts.getHostByAddress(destAddr)
 		
-		# Set packet sequence number.
-		if destination.packetCounter >= 0xFFFF:
-			destination.packetCounter = 1
+		if sequence == -1:
+			if options & OPTION_INFRASTRUCTURE:
+				packet.sequence = 0
+			else:
+				# Set packet sequence number.
+				if destination.packetCounter >= 0xFFFF:
+					destination.packetCounter = 1
+				else:
+					destination.packetCounter += 1
+				packet.sequence = destination.packetCounter
 		else:
-			destination.packetCounter += 1
-		packet.sequence = destination.packetCounter
+			packet.sequence = sequence
 		
 		# Add packet to retransmission list.
 		data = packet.serialize()
-		self._registerPacket(packet.sequence, data)
+		self._registerPacket(destAddr, packet.sequence, packet)
 		
 		# Split data into multiple frames.
 		length = len(data)
@@ -75,15 +100,39 @@ class PacketManager:
 				options,
 				payload)
 			
-			# Transmit frame
+			# Transmit frame.
 			serializedFrame = frame.serialize()
 			self.queueOut.put(serializedFrame)
 	
-	def _registerPacket(self, id, packetSer):
-		pass #add a packet to the list that need to be acknowledged
+	def _registerPacket(self, destAddr, id, packet):
+		self.packets[(destAddr, id)] = packet
 	
-	def _ackPacket(self, id):
-		pass #packet acknowledged, remove from retransmission list
+	def onRetransmitTick(self, dt):
+		print("RETRANSMIT PACKETS")
+	
+	def _sendAcknowledgement(self, destAddr, positive, sequence):
+		if positive:
+			cmd = self.cmdAck
+		else:
+			cmd = self.cmdNAck
+		packet = PLinkCore.PLinkPacket(
+			commandID = cmd.id,
+			payload = b'',
+			options = OPTION_INFRASTRUCTURE)
+		self.transmit(destination, packet, sequence = sequence)
+	
+	def onPacketAck(self, source, packet):
+		self.packets.pop((source, packet.sequence), None)
+		if packet.sequence > self.lastAck[source]:
+			self.lastAck[source] = packet.sequence
+	
+	def onPacketNegAck(self, source, packet):
+		# while True:
+			# try:
+				
+			# except KeyError:
+				# break
+		pass
 	
 	def drainInboundQueue(self, dt):
 		while True:
@@ -154,7 +203,13 @@ class KnownHosts:
 			print("GOT REPLY WITH SEQUENCE " + str(host.rxLastPacketSequence))
 			self.registerHost(host)
 	
-	def onNetBroadcast(self, source):
+	def onHeartbeatTick(self, dt):
+		self.network.commandMgr.sendCommand(ADDR_BROADCAST, "NET_HEARTBEAT",
+			options = OPTION_INFRASTRUCTURE)
+		# Check for expired heartbeats.
+		# raise Exception("NOT DONE")
+	
+	def onNetHeartbeat(self, source):
 		#TODO
 		pass
 

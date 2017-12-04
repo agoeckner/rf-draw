@@ -7,7 +7,6 @@ kivy.require('1.0.6') # replace with your current kivy version !
 
 from random import random
 from kivy.app import App
-from kivy.clock import Clock
 from kivy.uix.widget import Widget
 from kivy.uix.button import Button
 from kivy.graphics import Color, Ellipse, Line
@@ -62,9 +61,6 @@ class MyPaintApp(App):
 		self.network.commandMgr.registerCommand(
 			"APP_DRAW_CLEAR",
 			callback = self.onRemoteClear)
-		
-		# Set up packet handling tick.
-		Clock.schedule_interval(self.network.packetMgr.drainInboundQueue, 1 / 10.)
 		
 	def onRemoteDrawStart(self, source, hue, x, y):
 		self.painter.lineStart(source, hue, x, y)
