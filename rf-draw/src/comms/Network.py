@@ -7,6 +7,7 @@ import queue
 from collections import deque
 from kivy.clock import Clock
 from random import randint
+import time
 
 ADDR_BROADCAST = 0xFFFF
 ADDR_UNICAST_MAX = 0xFFFD
@@ -15,6 +16,7 @@ ADDR_UNICAST_MIN = 0x0000
 OPTION_INFRASTRUCTURE = 0x80
 OPTION_IMPORTANT = 0x40
 OPTION_BROADCAST = 0x20
+OPTION_ACK_BROADCAST = 0x10
 
 TIMEOUT_PACKET_ACK = 5 #seconds
 TIMEOUT_SEND_HEARTBEAT = 5 #seconds
@@ -38,10 +40,10 @@ class Network:
 			passPacket = True)
 		self.commandMgr.registerCommand("NET_HEARTBEAT",
 			callback = self.hosts.onNetHeartbeat)
-		self.cmdAck = self.commandMgr.registerCommand("NET_ACK",
+		self.packetMgr.cmdAck = self.commandMgr.registerCommand("NET_ACK",
 			callback = self.packetMgr.onPacketAck,
 			passPacket = True)
-		self.cmdNAck = self.commandMgr.registerCommand("NET_NACK",
+		self.packetMgr.cmdNAck = self.commandMgr.registerCommand("NET_NACK",
 			callback = self.packetMgr.onPacketNegAck,
 			passPacket = True)
 		
@@ -61,10 +63,9 @@ class PacketManager:
 		self.hosts = network.hosts
 		self.queueIn = queue['in']
 		self.queueOut = queue['out']
-		self.packets = {}
-		self.lastAck = {}
 
-	def transmit(self, destAddr, packet, options = 0, sequence = None):
+	def transmit(self, destAddr, packet, options = 0, sequence = None,
+			register = True):
 		destination = self.hosts.getHostByAddress(destAddr)
 		
 		if sequence == None:
@@ -82,7 +83,8 @@ class PacketManager:
 		
 		# Add packet to retransmission list.
 		data = packet.serialize()
-		self._registerPacket(destAddr, packet.sequence, packet)
+		if register:
+			self._registerPacket(destination, packet.sequence, packet)
 		
 		# Split data into multiple frames.
 		length = len(data)
@@ -107,35 +109,58 @@ class PacketManager:
 			serializedFrame = frame.serialize()
 			self.queueOut.put(serializedFrame)
 	
-	def _registerPacket(self, destAddr, id, packet):
-		self.packets[(destAddr, id)] = packet
+	def _registerPacket(self, destination, id, packet):
+		currentTime = time.time()
+		destination.packets.append((currentTime, packet.sequence, packet))
 	
 	def onRetransmitTick(self, dt):
 		pass#print("RETRANSMIT PACKETS")
 	
-	def _sendAcknowledgement(self, destAddr, positive, sequence):
+	def _sendAcknowledgement(self, destAddr, broadcast, positive, sequence):
 		if positive:
 			cmd = self.cmdAck
 		else:
 			cmd = self.cmdNAck
+		options = OPTION_INFRASTRUCTURE
+		if broadcast:
+			options = options | OPTION_ACK_BROADCAST
 		packet = PLinkCore.PLinkPacket(
 			commandID = cmd.id,
 			payload = b'',
-			options = OPTION_INFRASTRUCTURE)
-		self.transmit(destination, packet, sequence = sequence)
+			options = options)
+		self.transmit(destAddr, packet, sequence = sequence)
 	
-	def onPacketAck(self, source, packet):
-		self.packets.pop((source, packet.sequence), None)
-		if packet.sequence > self.lastAck[source]:
-			self.lastAck[source] = packet.sequence
-	
-	def onPacketNegAck(self, source, packet):
-		# while True:
-			# try:
-				
-			# except KeyError:
-				# break
+	def onPacketAck(self, srcAddr, packet):
 		pass
+	
+	def onPacketNegAck(self, srcAddr, packet):
+		print("Received negative acknowledgement for " + str(packet.sequence))
+		print("from " + str(srcAddr))
+		try:
+			source = self.hosts.getHostByAddress(srcAddr)
+		except:
+			return
+		if packet.options & OPTION_ACK_BROADCAST:
+			origDest = self.hosts.broadcast
+			packets = origDest.packets
+		else:
+			origDest = source
+			packets = source.packets
+		print("ORIGINALLY SENT TO " + str(origDest.address))
+		if len(packets) > 0 and packets[0][1] >= packet.sequence:
+			print("duplicate NACK")
+			return
+		retransmitted = []
+		while True:
+			try:
+				retrans = packets.popleft()
+			except IndexError:
+				print("INDEX ERROR")
+				break
+			if retrans[1] > packet.sequence:
+				print("RETRANSMIT PACKET WITH SEQ " + str(retrans[1]))
+				self.transmit(srcAddr, retrans[2], sequence=retrans[1],
+					register = False)
 	
 	def drainInboundQueue(self, dt):
 		while True:
@@ -157,13 +182,22 @@ class PacketManager:
 						except:
 							continue
 						
+						if randint(0, 10) == 0:
+							continue
+						
 						# Drop packets that are out of order.
 						isBroadcast = packet.options & OPTION_BROADCAST
 						if not source.checkAndSetSequence(isBroadcast, packet.sequence):
+							print("BAD PACKET WITH SEQUENCE: " + str(packet.sequence))
 							# in this case, send NACK containing last good packet.
 							# sender will retransmit important packets, resetting packetCounter
 							# reset packet counter with special infrastructure packet?
+							#	def _sendAcknowledgement(self, destAddr, broadcast, positive, sequence):
+							self._sendAcknowledgement(source.address,
+								isBroadcast, False,
+								source.getLastRxSequence(isBroadcast))
 							continue
+						print("SUCCESS: " + str(packet.sequence))
 					
 					self.network.commandMgr.parseCommandPacket(frame.source, packet)
 				except Exceptions.InvalidPacket as e:
@@ -232,13 +266,17 @@ class Host:
 		self.frameCounter = 0
 		self.packetCounter = randint(0, 0xFFFD)
 		self.heartbeatTicks = 0
+		self.rxPrevSeqUnicast = 0
+		self.rxPrevSeqBroadcast = 0
 		self.rxNextSeqUnicast = 0
 		self.rxNextSeqBroadcast = 0
+		self.packets = deque()
 	
 	# Returns false if packet is out of order.
 	def checkAndSetSequence(self, isBroadcast, sequence):
 		if isBroadcast:
 			if sequence == self.rxNextSeqBroadcast:
+				self.rxPrevSeqBroadcast = self.rxNextSeqBroadcast
 				if self.rxNextSeqBroadcast >= 0xFFFF:
 					self.rxNextSeqBroadcast = 1
 				else:
@@ -246,6 +284,7 @@ class Host:
 				return True
 		else:
 			if sequence == self.rxNextSeqUnicast:
+				self.rxPrevSeqUnicast = self.rxNextSeqUnicast
 				if self.rxNextSeqUnicast >= 0xFFFF:
 					self.rxNextSeqUnicast = 1
 				else:
@@ -255,15 +294,23 @@ class Host:
 	
 	def setSequence(self, isBroadcast, sequence):
 		if isBroadcast:
+			self.rxPrevSeqBroadcast = self.rxNextSeqBroadcast
 			if self.rxNextSeqBroadcast >= 0xFFFF:
 				self.rxNextSeqBroadcast = 1
 			else:
 				self.rxNextSeqBroadcast = sequence + 1
 		else:
+			self.rxPrevSeqUnicast = self.rxNextSeqUnicast
 			if self.rxNextSeqUnicast >= 0xFFFF:
 				self.rxNextSeqUnicast = 1
 			else:
 				self.rxNextSeqUnicast = sequence + 1
+	
+	def getLastRxSequence(self, broadcast):
+		if broadcast:
+			return self.rxPrevSeqBroadcast
+		else:
+			return self.rxPrevSeqUnicast
 
 class UnknownHostException(Exception): pass
 
