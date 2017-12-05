@@ -116,7 +116,42 @@ class PacketManager:
 		destination.packets[packet.sequence] = (currentTime, packet)
 	
 	def onRetransmitTick(self, dt):
-		pass#print("RETRANSMIT PACKETS")
+		return #TODO
+		for addr in self.hosts.hosts:
+			# if addr = ADDR_BROADCAST: #TODO: FIX BROADCAST
+				# continue
+			print("RUN RETRANSMISSION FOR " + str(addr))
+			
+			host = self.hosts.hosts[addr]
+			
+			# Get sequence number of first to retransmit.
+			if host.txLastAck >= 0xFFFF:
+				seq = 1
+			else:
+				seq = host.txLastAck + 1
+			print("SEQ " + str(seq))
+			
+			# Perform retransmission.
+			retrans = None
+			packets = host.packets
+			if seq in packets:
+				print("have seq")
+				retrans = packets[seq]
+				print(str(time.time()) + "   " + str(retrans[0]))
+				if (time.time() - retrans[0]) > TIMEOUT_PACKET_ACK:
+					print("timed out")
+					while retrans != None:
+						self.transmit(srcAddr, retrans[1], sequence=seq,
+							register = False)
+						packets[seq] = (time.time(), retrans[1])
+						print("Retransmitted!")
+						if seq >= 0xFFFF:
+							seq = 1
+						else:
+							seq += 1
+						if seq not in packets:
+							break
+						retrans = packets[seq]
 	
 	def _sendAcknowledgement(self, destAddr, broadcast, positive, sequence):
 		if positive:
@@ -149,7 +184,9 @@ class PacketManager:
 		
 		# Remove from retransmission list.
 		packets.pop(packet.sequence, None)
-
+		
+		source.txLastAck = packet.sequence
+		
 	def onPacketNegAck(self, srcAddr, packet):
 		# Get host object from source address.
 		try:
@@ -309,6 +346,7 @@ class Host:
 		self.rxPrevSeqBroadcast = 0
 		self.rxNextSeqUnicast = 0
 		self.rxNextSeqBroadcast = 0
+		self.txLastAck = 0
 		
 		# Packet retransmission data structures.
 		self.packets = {}
