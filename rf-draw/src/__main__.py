@@ -13,7 +13,6 @@ from comms import *
 import os
 import serial
 import queue
-from app import keyboard
 
 
 
@@ -50,7 +49,7 @@ class RFDraw:
 		except serial.SerialException as e:
 			print("ERROR: Could not connect to radio!")
 			print("Restarting application...")
-			os.execv(sys.executable, ['python'] + sys.argv)
+			# os.execv(sys.executable, ['python'] + sys.argv)
 			exit(-1)
 			raise e
 		self.serialIn = SerialInterface.SerialReader(self.serial, self.queue)

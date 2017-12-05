@@ -77,8 +77,8 @@ class PLinkPacket:
 	blake2s HMAC library example
 '''
 def blake2s_hmac(packet):
-	print("[PLinkCore] Session Pin:")
-	print(globals.SESSION_KEY)	
+	# print("[PLinkCore] Session Pin:")
+	# print(globals.SESSION_KEY)	
 
 	h = hashlib.blake2s( digest_size=globals.DIG_SIZE, key=globals.SESSION_KEY )
 	h.update(packet)

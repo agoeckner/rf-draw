@@ -9,12 +9,18 @@ from kivy.uix.button import Button
 from kivy.graphics import Color, Ellipse, Line
 from kivy.core.window import Window
 from kivy.config import Config
+from kivy.uix.textinput import TextInput
+from kivy.uix.label import Label
 import hashlib
 import datetime
+import time
+
 
 from app import globals
 
 
+def on_enter(instance, value):
+    print('User pressed enter in', instance)
 
 '''
 Convert arbitrary PIN to a 256-bit key
@@ -104,53 +110,60 @@ class MyPaintApp(App):
 		self.painter.canvas.clear()
 	
 	def build(self):
-		parent = Widget()
-		self.painter = MyPaintWidget()
-		self.painter.app = self
-		clearbtn = Button(text='Clear')
-		clearbtn.bind(on_release=self.clear_canvas)
-		parent.add_widget(self.painter)
-		parent.add_widget(clearbtn)
-
 		# pin entry stuff
 		Config.set("kivy", "keyboard_mode", 'dock')
 		Config.write()
-		self.set_layout('numeric.json' )
+		self.set_keyboard('numeric.json' )
 		self.input = ''
-
-
-		return parent
+		Window.maximize()
+		# Show PIN to user as they type in
+		self.textbox = Label(text='Enter PIN',
+			pos_hint={ 'top': 1},
+			size_hint = (.8,.8),
+			font_size='90sp')
+		Window.add_widget(self.textbox)
 
 	def clear_canvas(self, obj):
 		self.painter.canvas.clear()
 		self.network.commandMgr.sendCommand(
 			self.network.hosts.broadcast,
-			"APP_DRAW_CLEAR",
-			())
+			"APP_DRAW_CLEAR", ())
 	'''
 		Pin Entry code
 	'''
-	def set_layout(self, layout):
+	def set_keyboard(self, layout):
 		""" Change the keyboard layout to the one specified by *layout*. """
 		kb = Window.request_keyboard(
 			self._keyboard_close, self)
-		if kb.widget:
-			# If the current configuration supports Virtual Keyboards, this
-			# widget will be a kivy.uix.vkeyboard.VKeyboard instance.
+		if kb.widget: # Keyboard is a widget
 			self._keyboard = kb.widget
 			self._keyboard.layout = layout
 		else:
 			self._keyboard = kb
-
 		self._keyboard.bind(on_key_down=self.key_down,
-							on_key_up=self.key_up)
+			on_key_up=self.key_up)
 
 	def _keyboard_close(self, *args):
 		""" The active keyboard is being closed. """
 		if self._keyboard:
 			self._keyboard.unbind(on_key_down=self.key_down)
 			self._keyboard.unbind(on_key_up=self.key_up)
-			self._keyboard = None
+			Window.remove_widget(self._keyboard)
+			# time.sleep(1)
+			Window.remove_widget(self.textbox)
+			Window.clear()
+			# Pin recieved. Setup Drawing
+			self.init_painter()
+
+	def init_painter(self):
+		self.painter = MyPaintWidget()
+		self.painter.app = self
+		clearbtn = Button(text='Clear', 
+			size_hint = (.1,.1), 
+			pos_hint={'bottom': 0.9})
+		clearbtn.bind(on_release=self.clear_canvas)
+		Window.add_widget(self.painter)
+		Window.add_widget(clearbtn)
 
 	def key_down(self, keyboard, keycode, text, modifiers):
 		""" The callback function that catches keyboard events. """
@@ -158,23 +171,19 @@ class MyPaintApp(App):
 
 	# def key_up(self, keyboard, keycode):
 	def key_up(self, keyboard, keycode, *args):
-		""" The callback function that catches keyboard events. """
-		# system keyboard keycode: (122, 'z')
-		# dock keyboard keycode: 'z'
 		if isinstance(keycode, tuple):
 			keycode = keycode[1]
 		self.input += u"{0}".format(keycode)
-		print("PIN recieved: ")
-		print(self.input)
+		self.textbox.text = self.input
 		# Pin recieved
 		if len(self.input) == 4:
+			print("PIN recieved: ")
+			print(self.input)
 			input_pin = self.input
 			# global S_PIN
 			globals.S_PIN = str.encode(input_pin)
 			set_key()
 			self._keyboard_close(args)
-			Window.close()
-		
 
 
 if __name__ == '__main__':
