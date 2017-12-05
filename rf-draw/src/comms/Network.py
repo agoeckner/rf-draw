@@ -20,7 +20,8 @@ OPTION_ACK_BROADCAST = 0x10
 
 TIMEOUT_PACKET_ACK = 5 #seconds
 TIMEOUT_SEND_HEARTBEAT = 5 #seconds
-HEARTBEAT_TICKS_DEAD = 3 #ticks
+TIMEOUT_NACK = 1 #seconds
+HEARTBEAT_TICKS_DEAD = 99999#3 #ticks
 
 class Network:
 	def __init__(self, queue):
@@ -111,7 +112,7 @@ class PacketManager:
 	
 	def _registerPacket(self, destination, id, packet):
 		currentTime = time.time()
-		destination.packets.append((currentTime, packet.sequence, packet))
+		destination.packets[packet.sequence] = (currentTime, packet)
 	
 	def onRetransmitTick(self, dt):
 		pass#print("RETRANSMIT PACKETS")
@@ -134,8 +135,8 @@ class PacketManager:
 		pass
 	
 	def onPacketNegAck(self, srcAddr, packet):
-		print("Received negative acknowledgement for " + str(packet.sequence))
-		print("from " + str(srcAddr))
+		# print("Received negative acknowledgement for " + str(packet.sequence))
+		# print("from " + str(srcAddr))
 		try:
 			source = self.hosts.getHostByAddress(srcAddr)
 		except:
@@ -146,21 +147,31 @@ class PacketManager:
 		else:
 			origDest = source
 			packets = source.packets
-		print("ORIGINALLY SENT TO " + str(origDest.address))
-		if len(packets) > 0 and packets[0][1] >= packet.sequence:
-			print("duplicate NACK")
-			return
-		retransmitted = []
-		while True:
-			try:
-				retrans = packets.popleft()
-			except IndexError:
-				print("INDEX ERROR")
+		# print("ORIGINALLY SENT TO " + str(origDest.address))
+		# if len(packets) > 0 and packets[0][1] >= packet.sequence:
+			# print("duplicate NACK")
+			# return
+		if packet.sequence >= 0xFFFF:
+			seq = 1
+		else:
+			seq = packet.sequence + 1
+		retrans = None
+		if seq in packets:
+			retrans = packets[seq]
+		else:
+			print("DUPLICATED NACK " + str(packet.sequence))
+		while retrans != None:
+			# print("RETRANSMIT PACKET WITH SEQ " + str(seq))
+			self.transmit(srcAddr, retrans[1], sequence=seq,
+				register = False)	
+			
+			if seq >= 0xFFFF:
+				seq = 1
+			else:
+				seq += 1
+			if seq not in packets:
 				break
-			if retrans[1] > packet.sequence:
-				print("RETRANSMIT PACKET WITH SEQ " + str(retrans[1]))
-				self.transmit(srcAddr, retrans[2], sequence=retrans[1],
-					register = False)
+			retrans = packets[seq]
 	
 	def drainInboundQueue(self, dt):
 		while True:
@@ -188,16 +199,19 @@ class PacketManager:
 						# Drop packets that are out of order.
 						isBroadcast = packet.options & OPTION_BROADCAST
 						if not source.checkAndSetSequence(isBroadcast, packet.sequence):
-							print("BAD PACKET WITH SEQUENCE: " + str(packet.sequence))
+							# print("BAD PACKET WITH SEQUENCE: " + str(packet.sequence))
 							# in this case, send NACK containing last good packet.
 							# sender will retransmit important packets, resetting packetCounter
 							# reset packet counter with special infrastructure packet?
 							#	def _sendAcknowledgement(self, destAddr, broadcast, positive, sequence):
-							self._sendAcknowledgement(source.address,
-								isBroadcast, False,
-								source.getLastRxSequence(isBroadcast))
+							missing = source.getLastRxSequence(isBroadcast)
+							if missing not in source.retransmitRequested or \
+									time.time() - source.retransmitRequested[missing] > TIMEOUT_NACK:
+								source.retransmitRequested[missing] = time.time()
+								self._sendAcknowledgement(source.address,
+									isBroadcast, False, missing)
 							continue
-						print("SUCCESS: " + str(packet.sequence))
+						# print("SUCCESS: " + str(packet.sequence))
 					
 					self.network.commandMgr.parseCommandPacket(frame.source, packet)
 				except Exceptions.InvalidPacket as e:
@@ -262,15 +276,25 @@ class KnownHosts:
 
 class Host:
 	def __init__(self, address):
+		# Host's address.
 		self.address = address
+		
+		# Number of heartbeat ticks without signal from host.
+		self.heartbeatTicks = 0
+		
+		# Frame and packet counters for sequencing.
 		self.frameCounter = 0
 		self.packetCounter = randint(0, 0xFFFD)
-		self.heartbeatTicks = 0
+		
+		# Sequence numbers.
 		self.rxPrevSeqUnicast = 0
 		self.rxPrevSeqBroadcast = 0
 		self.rxNextSeqUnicast = 0
 		self.rxNextSeqBroadcast = 0
-		self.packets = deque()
+		
+		# Packet retransmission data structures.
+		self.packets = {}
+		self.retransmitRequested = {}
 	
 	# Returns false if packet is out of order.
 	def checkAndSetSequence(self, isBroadcast, sequence):
