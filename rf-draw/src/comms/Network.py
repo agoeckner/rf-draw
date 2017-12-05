@@ -21,7 +21,7 @@ OPTION_ACK_BROADCAST = 0x10
 TIMEOUT_PACKET_ACK = 5 #seconds
 TIMEOUT_SEND_HEARTBEAT = 5 #seconds
 TIMEOUT_NACK = 1 #seconds
-HEARTBEAT_TICKS_DEAD = 99999#3 #ticks
+HEARTBEAT_TICKS_DEAD = 3 #ticks
 
 class Network:
 	def __init__(self, queue):
@@ -68,7 +68,8 @@ class PacketManager:
 	def transmit(self, destAddr, packet, options = 0, sequence = None,
 			register = True):
 		destination = self.hosts.getHostByAddress(destAddr)
-		
+				
+		# Determine packet sequence number.
 		if sequence == None:
 			if packet.options & OPTION_INFRASTRUCTURE:
 				packet.sequence = 0
@@ -132,46 +133,60 @@ class PacketManager:
 		self.transmit(destAddr, packet, sequence = sequence)
 	
 	def onPacketAck(self, srcAddr, packet):
-		pass
-	
-	def onPacketNegAck(self, srcAddr, packet):
-		# print("Received negative acknowledgement for " + str(packet.sequence))
-		# print("from " + str(srcAddr))
+		# Get host object from source address.
 		try:
 			source = self.hosts.getHostByAddress(srcAddr)
 		except:
 			return
+		
+		# Figure out whether the packet was originally sent via broadcast.
 		if packet.options & OPTION_ACK_BROADCAST:
 			origDest = self.hosts.broadcast
 			packets = origDest.packets
 		else:
 			origDest = source
 			packets = source.packets
-		# print("ORIGINALLY SENT TO " + str(origDest.address))
-		# if len(packets) > 0 and packets[0][1] >= packet.sequence:
-			# print("duplicate NACK")
-			# return
+		
+		# Remove from retransmission list.
+		packets.pop(packet.sequence, None)
+
+	def onPacketNegAck(self, srcAddr, packet):
+		# Get host object from source address.
+		try:
+			source = self.hosts.getHostByAddress(srcAddr)
+		except:
+			return
+		
+		# Figure out whether the packet was originally sent via broadcast.
+		if packet.options & OPTION_ACK_BROADCAST:
+			origDest = self.hosts.broadcast
+			packets = origDest.packets
+		else:
+			origDest = source
+			packets = source.packets
+		
+		# Get sequence number of first to retransmit.
 		if packet.sequence >= 0xFFFF:
 			seq = 1
 		else:
 			seq = packet.sequence + 1
+		
+		# Perform retransmission.
 		retrans = None
 		if seq in packets:
 			retrans = packets[seq]
-		else:
-			print("DUPLICATED NACK " + str(packet.sequence))
-		while retrans != None:
-			# print("RETRANSMIT PACKET WITH SEQ " + str(seq))
-			self.transmit(srcAddr, retrans[1], sequence=seq,
-				register = False)	
-			
-			if seq >= 0xFFFF:
-				seq = 1
-			else:
-				seq += 1
-			if seq not in packets:
-				break
-			retrans = packets[seq]
+			while retrans != None:
+				self.transmit(srcAddr, retrans[1], sequence=seq,
+					register = False)
+				packets[seq] = (time.time(), retrans[1])
+				
+				if seq >= 0xFFFF:
+					seq = 1
+				else:
+					seq += 1
+				if seq not in packets:
+					break
+				retrans = packets[seq]
 	
 	def drainInboundQueue(self, dt):
 		while True:
@@ -212,6 +227,9 @@ class PacketManager:
 									isBroadcast, False, missing)
 							continue
 						# print("SUCCESS: " + str(packet.sequence))
+						
+						self._sendAcknowledgement(source.address,
+							isBroadcast, True, packet.sequence)
 					
 					self.network.commandMgr.parseCommandPacket(frame.source, packet)
 				except Exceptions.InvalidPacket as e:

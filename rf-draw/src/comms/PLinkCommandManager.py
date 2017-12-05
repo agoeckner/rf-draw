@@ -33,7 +33,6 @@ class PLinkCommandManager:
 			raise PLInvalidCommand(packet.commandID)
 		# Unpack parameters and call callback.
 		data = struct.unpack(cmd.format, packet.payload)
-		# print("RECEIVED COMMAND: " + str(cmd.name))
 		if cmd.passPacket:
 			cmd.callback(source, packet, *data)
 		else:
@@ -57,7 +56,6 @@ class PLinkCommandManager:
 			payload = data,
 			options = options)
 		self.packetMgr.transmit(destAddr, packet, sequence=sequence)
-		# print("SENT COMMAND: " + str(cmd.name))
 
 class PLCommand:
 	def __init__(self, id, name, parameters, callback, passPacket):
