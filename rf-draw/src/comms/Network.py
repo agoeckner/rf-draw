@@ -18,10 +18,11 @@ OPTION_IMPORTANT = 0x40
 OPTION_BROADCAST = 0x20
 OPTION_ACK_BROADCAST = 0x10
 
-TIMEOUT_PACKET_ACK = 5 #seconds
+TIMEOUT_PACKET_ACK = 1 #seconds
 TIMEOUT_SEND_HEARTBEAT = 5 #seconds
 TIMEOUT_NACK = 1 #seconds
 HEARTBEAT_TICKS_DEAD = 3 #ticks
+RETRANSMIT_BATCH_SIZE = 200 #packets
 
 class Network:
 	def __init__(self, queue):
@@ -50,7 +51,7 @@ class Network:
 		
 		# Set up timers.
 		Clock.schedule_interval(self.packetMgr.drainInboundQueue, 1 / 10.)
-		Clock.schedule_interval(self.packetMgr.onRetransmitTick, TIMEOUT_PACKET_ACK)
+		Clock.schedule_interval(self.packetMgr.onRetransmitTick, TIMEOUT_PACKET_ACK / 2)
 		Clock.schedule_interval(self.hosts.onHeartbeatTick, TIMEOUT_SEND_HEARTBEAT)
 		
 		# Send out initial request.
@@ -116,11 +117,10 @@ class PacketManager:
 		destination.packets[packet.sequence] = (currentTime, packet)
 	
 	def onRetransmitTick(self, dt):
-		return #TODO
 		for addr in self.hosts.hosts:
 			# if addr = ADDR_BROADCAST: #TODO: FIX BROADCAST
 				# continue
-			print("RUN RETRANSMISSION FOR " + str(addr))
+			# print("RUN RETRANSMISSION FOR " + str(addr))
 			
 			host = self.hosts.hosts[addr]
 			
@@ -129,22 +129,20 @@ class PacketManager:
 				seq = 1
 			else:
 				seq = host.txLastAck + 1
-			print("SEQ " + str(seq))
 			
 			# Perform retransmission.
 			retrans = None
 			packets = host.packets
 			if seq in packets:
-				print("have seq")
 				retrans = packets[seq]
-				print(str(time.time()) + "   " + str(retrans[0]))
-				if (time.time() - retrans[0]) > TIMEOUT_PACKET_ACK:
-					print("timed out")
-					while retrans != None:
-						self.transmit(srcAddr, retrans[1], sequence=seq,
+				currentTime = time.time()
+				if (currentTime - retrans[0]) > TIMEOUT_PACKET_ACK:
+					count = 0
+					while retrans != None and count < RETRANSMIT_BATCH_SIZE:
+						count += 1
+						self.transmit(addr, retrans[1], sequence=seq,
 							register = False)
-						packets[seq] = (time.time(), retrans[1])
-						print("Retransmitted!")
+						packets[seq] = (currentTime, retrans[1])
 						if seq >= 0xFFFF:
 							seq = 1
 						else:
@@ -185,7 +183,7 @@ class PacketManager:
 		# Remove from retransmission list.
 		packets.pop(packet.sequence, None)
 		
-		source.txLastAck = packet.sequence
+		origDest.txLastAck = packet.sequence
 		
 	def onPacketNegAck(self, srcAddr, packet):
 		# Get host object from source address.
@@ -245,12 +243,13 @@ class PacketManager:
 						except:
 							continue
 						
-						if randint(0, 10) == 0:
-							continue
+						# For simulating packet loss.
+						# if randint(0, 10) == 0:
+							# continue
 						
 						# Drop packets that are out of order.
 						isBroadcast = packet.options & OPTION_BROADCAST
-						if not source.checkAndSetSequence(isBroadcast, packet.sequence):
+						if source.checkAndSetSequence(isBroadcast, packet.sequence) == 0:
 							# print("BAD PACKET WITH SEQUENCE: " + str(packet.sequence))
 							# in this case, send NACK containing last good packet.
 							# sender will retransmit important packets, resetting packetCounter
@@ -339,7 +338,7 @@ class Host:
 		
 		# Frame and packet counters for sequencing.
 		self.frameCounter = 0
-		self.packetCounter = randint(0, 0xFFFD)
+		self.packetCounter = randint(0, 0x00FF)
 		
 		# Sequence numbers.
 		self.rxPrevSeqUnicast = 0
@@ -352,7 +351,9 @@ class Host:
 		self.packets = {}
 		self.retransmitRequested = {}
 	
-	# Returns false if packet is out of order.
+	# Returns 0 if packet is out of order.
+	# Returns 1 if packet is correct.
+	# Returns 2 if packet is duplicate #TODO
 	def checkAndSetSequence(self, isBroadcast, sequence):
 		if isBroadcast:
 			if sequence == self.rxNextSeqBroadcast:
@@ -361,7 +362,7 @@ class Host:
 					self.rxNextSeqBroadcast = 1
 				else:
 					self.rxNextSeqBroadcast += 1
-				return True
+				return 1
 		else:
 			if sequence == self.rxNextSeqUnicast:
 				self.rxPrevSeqUnicast = self.rxNextSeqUnicast
@@ -369,8 +370,8 @@ class Host:
 					self.rxNextSeqUnicast = 1
 				else:
 					self.rxNextSeqUnicast += 1
-				return True
-		return False
+				return 1
+		return 0
 	
 	def setSequence(self, isBroadcast, sequence):
 		if isBroadcast:
