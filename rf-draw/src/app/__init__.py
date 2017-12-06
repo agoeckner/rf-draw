@@ -153,6 +153,10 @@ class MyPaintApp(App):
 			self.init_painter()
 
 	def init_painter(self):
+	
+		# Initialize the network system.
+		self.network.initialize()
+	
 		self.painter = MyPaintWidget()
 		self.painter.app = self
 		clearbtn = Button(text='Clear', 

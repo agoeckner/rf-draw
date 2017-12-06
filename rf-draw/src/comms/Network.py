@@ -48,7 +48,8 @@ class Network:
 		self.packetMgr.cmdNAck = self.commandMgr.registerCommand("NET_NACK",
 			callback = self.packetMgr.onPacketNegAck,
 			passPacket = True)
-		
+	
+	def initialize(self):
 		# Set up timers.
 		Clock.schedule_interval(self.packetMgr.drainInboundQueue, 1 / 10.)
 		Clock.schedule_interval(self.packetMgr.onRetransmitTick, TIMEOUT_PACKET_ACK / 2)
@@ -300,7 +301,8 @@ class PacketManager:
 					self.network.commandMgr.parseCommandPacket(frame.source, packet)
 					
 				except Exceptions.InvalidPacket as e:
-					print("PACKET ERROR: " + str(e))
+					pass
+					# print("PACKET ERROR: " + str(e))
 		return True
 
 class KnownHosts:
