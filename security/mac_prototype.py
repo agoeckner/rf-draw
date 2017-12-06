@@ -70,6 +70,8 @@ def main():
 	sig = blake2s_hmac(packet)
 	print("digest:")
 	print(sig)
+	print("digest length:")
+	print( len(sig) )
 
 	print( KEY2 )
 	

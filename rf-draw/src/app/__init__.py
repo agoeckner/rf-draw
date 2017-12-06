@@ -151,7 +151,6 @@ class MyPaintApp(App):
 			self._keyboard.unbind(on_key_down=self.key_down)
 			self._keyboard.unbind(on_key_up=self.key_up)
 			Window.remove_widget(self._keyboard)
-			# time.sleep(1)
 			Window.remove_widget(self.textbox)
 			Window.clear()
 			# Pin recieved. Setup Drawing
