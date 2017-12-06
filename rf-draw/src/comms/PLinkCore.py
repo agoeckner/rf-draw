@@ -3,6 +3,7 @@ import struct
 import hmac
 import hashlib
 import datetime
+import pyblake2 # sudo pip3 install pyblake2
 from app import globals
 
 # Packet configuration.
@@ -80,7 +81,7 @@ def blake2s_hmac(packet):
 	# print("[PLinkCore] Session Pin:")
 	# print(globals.SESSION_KEY)	
 
-	h = hashlib.blake2s( digest_size=globals.DIG_SIZE, key=globals.SESSION_KEY )
+	h = pyblake2.blake2s( digest_size=globals.DIG_SIZE, key=globals.SESSION_KEY )
 	h.update(packet)
 	# print("Digest Size: " + str(h.digest_size) )
 	return h.digest()
