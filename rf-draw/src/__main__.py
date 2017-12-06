@@ -13,7 +13,7 @@ from comms import *
 import os
 import serial
 import queue
-
+import globals
 
 
 class RFDraw:
@@ -28,7 +28,18 @@ class RFDraw:
 			'--port',
 			nargs = 1,
 			default = ["/dev/null"])  # ["COM1"])
+		parser.add_argument(
+			'--pi',
+			action = "store_true",
+			default = False,
+			help = "Whether this is running on a Raspberry Pi")
 		args = parser.parse_args(argv)
+		
+		if args.pi:
+			print("Running in mode: RASPBERRY PI")
+		else:
+			print("Running in mode: PC")
+		globals.RPI = args.pi
 	
 		# Import settings
 		# config = ConfigParser.SafeConfigParser()
