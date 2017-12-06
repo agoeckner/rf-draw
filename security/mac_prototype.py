@@ -59,15 +59,6 @@ def set_key():
 	KEY2 = pin_to_key(S_PIN + temp + S_KEY  )
 
 def main():
-	# set S_PIN with virtual keyboard
-
-	keyboard = Window.request_keyboard(
-    self._keyboard_close, self)
-	if keyboard.widget:
-	    vkeyboard = self._keyboard.widget
-	    vkeyboard.layout = 'numeric.json'
-
-
 	set_key()
 	print(S_PIN)
 
@@ -77,6 +68,8 @@ def main():
 
 	# Begin calls
 	sig = blake2s_hmac(packet)
+	print("digest:")
+	print(sig)
 
 	print( KEY2 )
 	
