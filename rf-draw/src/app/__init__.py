@@ -1,9 +1,12 @@
+# Turn off Kivy's console output.
+from kivy.config import Config
+Config.set("kivy", "log_level", "warning")
+
 import kivy
 kivy.require('1.0.6') # replace with your current kivy version !
 
 from random import random
 from kivy.app import App
-from kivy.clock import Clock
 from kivy.uix.widget import Widget
 from kivy.uix.button import Button
 from kivy.graphics import Color, Ellipse, Line
@@ -51,7 +54,7 @@ class MyPaintWidget(Widget):
 		hue = random()
 		self.lineStart('local', hue, touch.x, touch.y)
 		self.app.network.commandMgr.sendCommand(
-			self.app.network.hosts.broadcast,
+			self.app.network.hosts.broadcast.address,
 			"APP_DRAW_TOUCH_DOWN",
 			(hue, touch.x, touch.y))
 	
@@ -71,7 +74,7 @@ class MyPaintWidget(Widget):
 			return
 		self.lineContinue('local', touch.x, touch.y)
 		self.app.network.commandMgr.sendCommand(
-			self.app.network.hosts.broadcast,
+			self.app.network.hosts.broadcast.address,
 			"APP_DRAW_TOUCH_CONTINUE",
 			(touch.x, touch.y))
 
@@ -93,9 +96,6 @@ class MyPaintApp(App):
 		self.network.commandMgr.registerCommand(
 			"APP_DRAW_CLEAR",
 			callback = self.onRemoteClear)
-		
-		# Set up packet handling tick.
-		Clock.schedule_interval(self.network.commandMgr.drainInboundQueue, 1 / 10.)
 		
 	def onRemoteDrawStart(self, source, hue, x, y):
 		self.painter.lineStart(source, hue, x, y)
@@ -123,7 +123,7 @@ class MyPaintApp(App):
 	def clear_canvas(self, obj):
 		self.painter.canvas.clear()
 		self.network.commandMgr.sendCommand(
-			self.network.hosts.broadcast,
+			self.network.hosts.broadcast.address,
 			"APP_DRAW_CLEAR", ())
 	'''
 		Pin Entry code

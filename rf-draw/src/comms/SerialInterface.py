@@ -10,7 +10,6 @@ class SerialReader(threading.Thread):
 		threading.Thread.__init__(self)
 		print("Initializing SerialReader.")
 		self.queueIn = queue['in']
-		print("SERIALREADER QUEUEIN " + str(self.queueIn))
 		self.queueOut = queue['out']
 		self.serial = serial
 		self.setDaemon(True)
@@ -41,10 +40,6 @@ class SerialReader(threading.Thread):
 				try:
 					frame = XBeeCore.XBeeFrame(
 						byteArray = startByte + rawLength + remainder)
-					print("GOT FRAME: " + str(frame))
-					# print("SOURCE: " + str(frame.source))
-					# print("RSSI: " + str(frame.rssi))
-					print("PAYLOAD: " + str(frame.payload))
 					self.queueIn.put(frame)
 				except InvalidFrame as e:
 					print("ERROR: " + str(e))

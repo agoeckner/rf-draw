@@ -34,20 +34,21 @@ class XBeeFrame:
 			source = 0,
 			rssi = 0,
 			byteArray = None):
+		# Set defaults.
+		self.frameID = frameID
+		self.destination = destination
+		self.options = options
+		self.payload = payload
+		self.source = source
+		self.rssi = rssi
+		
+		# Building a packet from scratch.
 		if byteArray == None:
-			# Create a new Tx frame.
 			if destination != -1:
-				self.frameID = frameID
-				self.destination = destination
-				self.options = options
-				self.payload = payload
+				# Create a new Tx frame.
 				self.apiID = TX_API_ID
-	
-			# Create a new Rx frame.
 			else:
-				self.source = source
-				self.rssi = rssi
-				self.options = options
+				# Create a new Rx frame.
 				self.apiID = RX_API_ID
 	
 		# Create a new frame from a serialized frame.

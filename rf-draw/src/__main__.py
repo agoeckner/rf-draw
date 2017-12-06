@@ -65,4 +65,7 @@ class RFDraw:
 		self.app.run()
 
 if __name__ == '__main__':
-	RFDraw().run()
+	try:
+		RFDraw().run()
+	except KeyboardInterrupt:
+		exit(0)
