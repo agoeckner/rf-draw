@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-APP_PATH="/usr/__main__.py"
-APP="python3 $APP_PATH"
+APP_PATH="./src/"
+APP="python3 $APP_PATH --port /dev/ttyAMA0 --pi --"
 log_file=app_runner.log
 
 curr_time=$(date "+%Y.%m.%d-%H.%M.%S")
