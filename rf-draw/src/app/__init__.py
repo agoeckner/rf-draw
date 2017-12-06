@@ -16,9 +16,9 @@ from kivy.uix.label import Label
 import hashlib
 import datetime
 import time
+from subprocess import call
 
-
-from app import globals
+import globals
 
 
 def on_enter(instance, value):
@@ -107,12 +107,17 @@ class MyPaintApp(App):
 		self.painter.canvas.clear()
 	
 	def build(self):
+		# Set full screen
+		if globals.RPI:
+			Window.fullscreen = 'auto'
+		else:
+			Window.fullscreen = False
+	
 		# pin entry stuff
 		Config.set("kivy", "keyboard_mode", 'dock')
 		Config.write()
 		self.set_keyboard('numeric.json' )
 		self.input = ''
-		Window.maximize()
 		# Show PIN to user as they type in
 		self.textbox = Label(text='Enter PIN',
 			pos_hint={ 'top': 1},
@@ -163,9 +168,20 @@ class MyPaintApp(App):
 			size_hint = (.1,.1), 
 			pos_hint={'bottom': 0.9})
 		clearbtn.bind(on_release=self.clear_canvas)
+		quitbtn = Button(text='Quit', 
+			size_hint = (.1,.1), 
+			pos_hint={'bottom': 0.9, 'right': 1.0})
+		quitbtn.bind(on_release=self.onQuitBtnPress)
 		Window.add_widget(self.painter)
 		Window.add_widget(clearbtn)
+		Window.add_widget(quitbtn)
 
+	def onQuitBtnPress(self, obj):
+		if globals.RPI:
+			call("sudo shutdown -h now", shell=True)
+		else:
+			quit(0)
+		
 	def key_down(self, keyboard, keycode, text, modifiers):
 		""" The callback function that catches keyboard events. """
 		self.input += u"{0}".format(text)
@@ -180,7 +196,7 @@ class MyPaintApp(App):
 			self.textbox.text = self.input
 		except ValueError:
 			if 'backspace' in self.input:
-				self.input = self.input[:-13]
+				self.input = self.input[:-14]
 				self.textbox.text = self.input
 		# Pin recieved
 		if len(self.input) == 4:
