@@ -3,6 +3,7 @@ import hashlib
 import base64
 import time
 import datetime
+import pyblake2
 
 
 '''
@@ -39,7 +40,7 @@ S_PIN = b"12345"
 
 def blake2s_hmac(packet):
 	# h = hmac.new(KEY2, digestmod=hashlib.blake2s)	
-	h = hashlib.blake2s( digest_size=DIG_SIZE2, key=KEY2 )
+	h = pyblake2.blake2s( digest_size=DIG_SIZE2, key=KEY2 )
 	h.update(packet)
 	# print("Digest Size: " + str(h.digest_size) )
 	return h.digest()
