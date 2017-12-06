@@ -9,7 +9,6 @@ from kivy.uix.button import Button
 from kivy.graphics import Color, Ellipse, Line
 from kivy.core.window import Window
 from kivy.config import Config
-from kivy.uix.textinput import TextInput
 from kivy.uix.label import Label
 import hashlib
 import datetime
@@ -20,7 +19,7 @@ from app import globals
 
 
 def on_enter(instance, value):
-    print('User pressed enter in', instance)
+	print('User pressed enter in', instance)
 
 '''
 Convert arbitrary PIN to a 256-bit key
@@ -39,11 +38,9 @@ def set_key():
 	today = datetime.datetime.now()
 	r = today.day + today.month + today.year
 	temp = bytes(r)
-	# global SESSION_KEY
-	# global PRESHARED_KEY 
 	globals.SESSION_KEY = pin_to_key(globals.S_PIN + temp + globals.PRESHARED_KEY  )
 	print("[Draw] Session Pin:")
-	print(globals.SESSION_KEY)	
+	print(globals.SESSION_KEY)  
 
 
 class MyPaintWidget(Widget):
@@ -132,7 +129,7 @@ class MyPaintApp(App):
 		Pin Entry code
 	'''
 	def set_keyboard(self, layout):
-		""" Change the keyboard layout to the one specified by *layout*. """
+		""" Change the keyboard layout to the one specified by string layout. """
 		kb = Window.request_keyboard(
 			self._keyboard_close, self)
 		if kb.widget: # Keyboard is a widget
@@ -169,12 +166,18 @@ class MyPaintApp(App):
 		""" The callback function that catches keyboard events. """
 		self.input += u"{0}".format(text)
 
-	# def key_up(self, keyboard, keycode):
+# BACKSPACE entry = len 13	
 	def key_up(self, keyboard, keycode, *args):
 		if isinstance(keycode, tuple):
 			keycode = keycode[1]
 		self.input += u"{0}".format(keycode)
-		self.textbox.text = self.input
+		try:
+			int(self.input)
+			self.textbox.text = self.input
+		except ValueError:
+			if 'backspace' in self.input:
+				self.input = self.input[:-13]
+				self.textbox.text = self.input
 		# Pin recieved
 		if len(self.input) == 4:
 			print("PIN recieved: ")
