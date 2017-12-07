@@ -1,9 +1,18 @@
 from . import Exceptions
 from . import PLinkCore
 from . import XBeeCore
-from . import Network
 import struct
 import queue
+
+
+ADDR_BROADCAST = 0xFFFF
+ADDR_UNICAST_MAX = 0xFFFD
+ADDR_UNICAST_MIN = 0x0000
+
+OPTION_INFRASTRUCTURE = 0x80
+OPTION_IMPORTANT = 0x40
+OPTION_BROADCAST = 0x20
+OPTION_ACK_BROADCAST = 0x10
 
 class PLinkCommandManager:
 	def __init__(self, network, queue):
@@ -46,8 +55,8 @@ class PLinkCommandManager:
 			raise PLInvalidCommand(cmdName)
 		
 		# Add broadcast option.
-		if destAddr == Network.ADDR_BROADCAST:
-			options = options | Network.OPTION_BROADCAST
+		if destAddr == ADDR_BROADCAST:
+			options = options | OPTION_BROADCAST
 		
 		# Construct packet.
 		data = struct.pack(cmd.format, *parameters)
