@@ -21,9 +21,6 @@ from subprocess import call
 import globals
 
 
-def on_enter(instance, value):
-	print('User pressed enter in', instance)
-
 '''
 Convert arbitrary PIN to a 256-bit key
 '''
