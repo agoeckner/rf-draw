@@ -12,7 +12,6 @@ echo "[$curr_time] rf-draw Started.." >> $log_file
 until $APP; do
 	curr_time=$(date "+%Y.%m.%d-%H.%M.%S")
     echo "[$curr_time] rf-draw crashed with exit code $?.  Respawning.." >> $log_file
-    # ping the switch?
     sleep 1
 done
 
