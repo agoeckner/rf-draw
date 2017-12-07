@@ -3,6 +3,7 @@ import hashlib
 import base64
 import time
 import datetime
+import pyblake2
 
 
 '''
@@ -39,7 +40,7 @@ S_PIN = b"12345"
 
 def blake2s_hmac(packet):
 	# h = hmac.new(KEY2, digestmod=hashlib.blake2s)	
-	h = hashlib.blake2s( digest_size=DIG_SIZE2, key=KEY2 )
+	h = pyblake2.blake2s( digest_size=DIG_SIZE2, key=KEY2 )
 	h.update(packet)
 	# print("Digest Size: " + str(h.digest_size) )
 	return h.digest()
@@ -58,15 +59,6 @@ def set_key():
 	KEY2 = pin_to_key(S_PIN + temp + S_KEY  )
 
 def main():
-	# set S_PIN with virtual keyboard
-
-	keyboard = Window.request_keyboard(
-    self._keyboard_close, self)
-	if keyboard.widget:
-	    vkeyboard = self._keyboard.widget
-	    vkeyboard.layout = 'numeric.json'
-
-
 	set_key()
 	print(S_PIN)
 
@@ -76,6 +68,10 @@ def main():
 
 	# Begin calls
 	sig = blake2s_hmac(packet)
+	print("digest:")
+	print(sig)
+	print("digest length:")
+	print( len(sig) )
 
 	print( KEY2 )
 	
