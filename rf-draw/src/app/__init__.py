@@ -115,7 +115,6 @@ class MyPaintApp(App):
 	
 		# pin entry stuff
 		Config.set("kivy", "keyboard_mode", 'dock')
-		Config.write()
 		self.set_keyboard('numeric.json' )
 		self.input = ''
 		# Show PIN to user as they type in
@@ -136,7 +135,7 @@ class MyPaintApp(App):
 	def set_keyboard(self, layout):
 		""" Change the keyboard layout to the one specified by string layout. """
 		kb = Window.request_keyboard(
-			self._keyboard_close, self)
+			self._keyboard_close, self.root)
 		if kb.widget: # Keyboard is a widget
 			self._keyboard = kb.widget
 			self._keyboard.layout = layout
