@@ -105,10 +105,10 @@ class MyPaintApp(App):
 	
 	def build(self):
 		# Set full screen
-		if globals.RPI:
-			Window.fullscreen = 'auto'
-		else:
-			Window.fullscreen = False
+		# if globals.RPI:
+		# 	Window.fullscreen = 'auto'
+		# else:
+		# 	Window.fullscreen = False
 	
 		# pin entry stuff
 		Config.set("kivy", "keyboard_mode", 'dock')		
