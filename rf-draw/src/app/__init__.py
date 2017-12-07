@@ -114,8 +114,7 @@ class MyPaintApp(App):
 			Window.fullscreen = False
 	
 		# pin entry stuff
-		Config.set("kivy", "keyboard_mode", 'dock')
-		self.set_keyboard('numeric.json' )
+		Config.set("kivy", "keyboard_mode", 'dock')		
 		self.input = ''
 		# Show PIN to user as they type in
 		self.textbox = Label(text='Enter PIN',
@@ -123,6 +122,7 @@ class MyPaintApp(App):
 			size_hint = (.8,.8),
 			font_size='90sp')
 		Window.add_widget(self.textbox)
+		self.set_keyboard('numeric.json' )
 
 	def clear_canvas(self, obj):
 		self.painter.canvas.clear()
